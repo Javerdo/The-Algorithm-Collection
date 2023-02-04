@@ -1,53 +1,32 @@
-#include <greeter/greeter.h>
-#include <greeter/version.h>
-
-#include <cxxopts.hpp>
+#include <algorithm/array.h>
 #include <iostream>
-#include <string>
-#include <unordered_map>
 
-auto main(int argc, char** argv) -> int {
-  const std::unordered_map<std::string, greeter::LanguageCode> languages{
-      {"en", greeter::LanguageCode::EN},
-      {"de", greeter::LanguageCode::DE},
-      {"es", greeter::LanguageCode::ES},
-      {"fr", greeter::LanguageCode::FR},
-  };
+int main(int argc, char** argv) {
 
-  cxxopts::Options options(*argv, "A program to welcome the world!");
+    Array<int> arr = { 1, 2, 3, 4, 5 };
 
-  std::string language;
-  std::string name;
+    std::cout << "Array size: " << arr.size() << std::endl;
 
-  // clang-format off
-  options.add_options()
-    ("h,help", "Show help")
-    ("v,version", "Print the current version number")
-    ("n,name", "Name to greet", cxxopts::value(name)->default_value("World"))
-    ("l,lang", "Language code to use", cxxopts::value(language)->default_value("en"))
-  ;
-  // clang-format on
+    std::cout << "Array elements: ";
+    for (const auto& elem : arr) {
+        std::cout << elem << " ";
+    }
+    std::cout << std::endl;
 
-  auto result = options.parse(argc, argv);
+    arr.push_back(6);
+    std::cout << "Array after push_back(6): ";
+    for (const auto& elem : arr) {
+        std::cout << elem << " ";
+    }
+    std::cout << std::endl;
 
-  if (result["help"].as<bool>()) {
-    std::cout << options.help() << std::endl;
+    arr.pop_back();
+    std::cout << "Array after pop_back(): ";
+    for (const auto& elem : arr) {
+        std::cout << elem << " ";
+    }
+    std::cout << std::endl;
+
     return 0;
-  }
-
-  if (result["version"].as<bool>()) {
-    std::cout << "Greeter, version " << GREETER_VERSION << std::endl;
-    return 0;
-  }
-
-  auto langIt = languages.find(language);
-  if (langIt == languages.end()) {
-    std::cerr << "unknown language code: " << language << std::endl;
-    return 1;
-  }
-
-  greeter::Greeter greeter(name);
-  std::cout << greeter.greet(langIt->second) << std::endl;
-
   return 0;
 }
