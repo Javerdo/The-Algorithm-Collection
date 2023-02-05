@@ -96,7 +96,7 @@ TEST_CASE("Test reserve function") {
     arr.reserve(10);
 
     SUBCASE("Capacity increase") {
-        CHECK(arr.capacity() == 10)
+        CHECK(arr.capacity() == 10);
     }
 
     SUBCASE("Capacity unchanged if new_capacity is less than or equal to size") {
