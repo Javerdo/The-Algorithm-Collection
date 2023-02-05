@@ -1,0 +1,14 @@
+The system is: Windows - 10.0.22621 - AMD64
+Compiling the CXX compiler identification source file "CMakeCXXCompilerId.cpp" succeeded.
+Compiler: C:/Program Files/JetBrains/CLion 2022.3.2/bin/mingw/bin/g++.exe 
+Build flags: 
+Id flags:  
+
+The output was:
+0
+
+
+Compilation of the CXX compiler identification source "CMakeCXXCompilerId.cpp" produced "a.exe"
+
+The CXX compiler identification is GNU, found in "//wsl$/Ubuntu/home/javerdo/cpp/The-Algorithm-Collection/cmake-build-debug/CMakeFiles/3.24.2/CompilerIdCXX/a.exe"
+

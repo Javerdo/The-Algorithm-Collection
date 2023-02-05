@@ -70,3 +70,9 @@ TEST_CASE("Test insert") {
     arr.insert(2, 6);
     CHECK(arr.size() == 6);
 }
+
+TEST_CASE("Test data function") {
+    Array<int> arr = {1, 2, 3, 4, 5};
+    CHECK(arr.data().front() == 1);
+    CHECK(arr.data().back() == 5);
+}
