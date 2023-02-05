@@ -1,5 +1,5 @@
 #include <doctest/doctest.h>
-#include <algorithm/darray.h>
+#include <algorithmCollection/darray.h>
 
 TEST_CASE("Test default constructor") {
     Darray<int> arr;
@@ -96,7 +96,7 @@ TEST_CASE("Test reserve function") {
     arr.reserve(10);
 
     SUBCASE("Capacity increase") {
-        CHECK(arr.capacity() == arr.capacity() == 10)
+        CHECK(arr.capacity() == 10)
     }
 
     SUBCASE("Capacity unchanged if new_capacity is less than or equal to size") {

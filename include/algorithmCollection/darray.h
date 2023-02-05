@@ -4,7 +4,7 @@
 #include <ranges>
 #include <stdexcept>
 #include <span>
-#include <algorithm/simpleAllocator.h>
+#include <algorithmCollection/simpleAllocator.h>
 
 // Dynamic array which increases size when at capacity
 template <typename T, typename Alloc = SimpleAllocator<T>>
@@ -17,19 +17,34 @@ public:
     using span = std::span<T>;
     using const_span = std::span<const T>;
 
-    constexpr Darray() : m_size(0), m_capacity(0), m_data(nullptr) {}
-    constexpr explicit Darray(std::size_t size) : m_size(size), m_capacity(size), m_data(std::make_unique<T[]>(size)) {}
+    constexpr Darray() 
+        : m_size(0), 
+          m_capacity(0), 
+          m_data(nullptr) {}
 
-    constexpr Darray(std::initializer_list<T> values) : m_size(values.size()), m_capacity(values.size()), 
-        m_data(std::make_unique<T[]>(values.size())) {
+    constexpr explicit Darray(std::size_t size) 
+        : m_size(size), 
+          m_capacity(size), 
+          m_data(std::make_unique<T[]>(size)) {}
+
+    constexpr Darray(std::initializer_list<T> values) 
+        : m_size(values.size()), 
+          m_capacity(values.size()), 
+          m_data(std::make_unique<T[]>(values.size())) {
         std::ranges::copy(values.begin(), values.end(), m_data.get());
     }
 
-    constexpr Darray(const Darray& other) : m_size(other.m_size), m_capacity(other.m_size), m_data(std::make_unique<T[]>(other.m_size)) {
+    constexpr Darray(const Darray& other) 
+        : m_size(other.m_size), 
+          m_capacity(other.m_size), 
+          m_data(std::make_unique<T[]>(other.m_size)) {
         std::ranges::copy_n(other.m_data.get(), other.m_size, m_data.get());
     }
 
-    constexpr Darray(Darray&& other) noexcept : m_size(other.m_size), m_capacity(other.m_capacity), m_data(std::move(other.m_data)) {
+    constexpr Darray(Darray&& other) noexcept 
+        : m_size(other.m_size), 
+          m_capacity(other.m_capacity), 
+          m_data(std::move(other.m_data)) {
         other.m_size = 0;
         other.m_capacity = 0;
     }
@@ -62,27 +77,30 @@ public:
     // Returns a constant reference to the element stored at the specified index in the array.
     const T& operator[](std::size_t index) const { return m_data[index]; }
 
-    iterator begin() { return m_data.get(); }
-    const_iterator begin() const { return m_data.get(); }
-    const_iterator cbegin() const { return begin(); }
-    iterator end() { return m_data.get() + m_size; }
-    const_iterator end() const { return m_data.get() + m_size; }
-    const_iterator cend() const { return end(); }
-    reverse_iterator rbegin() { return reverse_iterator(end()); }
-    const_reverse_iterator rbegin() const { return const_reverse_iterator(end()); }
-    const_reverse_iterator crbegin() const { return rbegin(); }
-    reverse_iterator rend() { return reverse_iterator(begin()); }
-    const_reverse_iterator rend() const { return const_reverse_iterator(begin()); }
-    const_reverse_iterator crend() const { return rend(); }
+    constexpr iterator begin() { return m_data.get(); }
+    constexpr const_iterator begin() const { return m_data.get(); }
+    constexpr const_iterator cbegin() const { return begin(); }
+    constexpr iterator end() { return m_data.get() + m_size; }
+    constexpr const_iterator end() const { return m_data.get() + m_size; }
+    constexpr const_iterator cend() const { return end(); }
+    constexpr reverse_iterator rbegin() { return reverse_iterator(end()); }
+    constexpr const_reverse_iterator rbegin() const { return const_reverse_iterator(end()); }
+    constexpr const_reverse_iterator crbegin() const { return rbegin(); }
+    constexpr reverse_iterator rend() { return reverse_iterator(begin()); }
+    constexpr const_reverse_iterator rend() const { return const_reverse_iterator(begin()); }
+    constexpr const_reverse_iterator crend() const { return rend(); }
 
     // Returns a non-const span object that provides pointer access to the underlying stored data.
-    span data() { return { m_data.get(), m_size }; }
+    constexpr span data() { return { m_data.get(), m_size }; }
 
     // Returns a const span object that provides read-only pointer access to the underlying stored data.
-    const_span data() const { return { m_data.get(), m_size }; }
+    constexpr const_span data() const { return { m_data.get(), m_size }; }
 
     // Returns size of array
-    std::size_t size() const { return m_size; }
+    constexpr std::size_t size() const { return m_size; }
+
+    // Returns capacity of array
+    constexpr std::size_t capacity() const { return m_capacity; }
 
     // Checks whether array is empty or not
     constexpr bool empty() const { return m_size == 0; }
@@ -149,16 +167,22 @@ public:
 
         return m_data[index];
     }
-
  
     // Reserves storage space to store at least `new_capacity` elements in the array.
     // Note: If `new_capacity` is less than or equal to the current size of the custom array, the function does nothing.
-
     constexpr void reserve(std::size_t new_capacity) {
-        if (new_capacity > m_size) {
+        if (new_capacity > m_capacity) {
             auto new_data = std::make_unique<T[]>(new_capacity);
-            std::ranges::copy(m_data, m_data.get() + m_size, new_data.get());
-            m_data = std::move(new_data);
+
+            if (!new_data) {
+                throw std::bad_alloc();
+            }
+
+            if (new_data.get() != m_data.get()) {
+                std::ranges::copy(m_data, m_data.get() + m_size, new_data.get());
+                m_data = std::move(new_data);
+                m_capacity = new_capacity;
+            }
         }
     }
 
