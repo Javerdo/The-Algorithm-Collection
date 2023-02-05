@@ -128,7 +128,7 @@ public:
         size_ = new_size;
     }
 
-    // Inserts an element at a specified index of the array
+    // Inserts an element at a specified index of the array (Reallocation if size increases)
     // - index: the index to insert the element at
     // - value: the value to insert
     void insert(std::size_t index, const T& value) {
@@ -136,12 +136,16 @@ public:
             throw std::out_of_range("Index out of range");
         }
 
-        auto it = begin() + index;
+        // Allocate more memory
+        auto new_data = std::make_unique<T[]>(size_ + 1);
 
-        // Shift all elements after the insertion point to the right
-        std::rotate(it, end() -1, end());
-        // Insert the value at the specified index
-        *it = value;
+        std::copy(data_.get(), data_.get() + index, new_data.get());
+        new_data[index] = value;
+
+        // Copy the elements after the insertion point
+        std::copy(data_.get() + index, data_.get() + size_, new_data.get() + index + 1);
+        data_ = std::move(new_data);
+        ++size_;
     }
 
 private:
