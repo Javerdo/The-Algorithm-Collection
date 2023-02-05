@@ -34,10 +34,10 @@ set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 20)
 # enable compiler warnings
 if(NOT TEST_INSTALLED_VERSION)
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    target_compile_options(Algorithm PUBLIC -Wall -Wpedantic -Wextra -Werror)
+    target_compile_options(Algorithm INTERFACE -Wall -Wpedantic -Wextra -Werror)
   elseif(MSVC)
-    target_compile_options(Algorithm PUBLIC /W4 /WX)
-    target_compile_definitions(${PROJECT_NAME} PUBLIC DOCTEST_CONFIG_USE_STD_HEADERS)
+    target_compile_options(Algorithm INTERFACE /W4 /WX)
+    target_compile_definitions(${PROJECT_NAME} INTERFACE DOCTEST_CONFIG_USE_STD_HEADERS)
   endif()
 endif()
 
@@ -55,6 +55,6 @@ doctest_discover_tests(${PROJECT_NAME})
 # ---- code coverage ----
 
 if(ENABLE_TEST_COVERAGE)
-  target_compile_options(Algorithm PUBLIC -O0 -g -fprofile-arcs -ftest-coverage)
-  target_link_options(Algorithm PUBLIC -fprofile-arcs -ftest-coverage)
+  target_compile_options(Algorithm INTERFACE -O0 -g -fprofile-arcs -ftest-coverage)
+  target_link_options(Algorithm INTERFACE -fprofile-arcs -ftest-coverage)
 endif()

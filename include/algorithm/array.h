@@ -18,7 +18,11 @@ public:
     explicit Array(std::size_t size) : size_(size), data_(std::make_unique<T[]>(size_)) {}
     Array(std::initializer_list<T> init) : Array(init.size()) { std::ranges::copy(init, data_.get()); }
     Array(span init) : Array(init.size()) { std::ranges::copy(init, data_.get()); }
-    Array(const Array& other) : Array(other.size_) { std::ranges::copy(other.data_, data_.get()); }
+    Array(const Array& other) : Array(other.size_) { 
+        std::copy(other.data_.get(), other.data_.get() + other.size_, data_.get());
+        // std::ranges::copy(other.data_, data_.get()); commented out until it works with cpp 20
+    }
+
     Array(Array&& other) : size_(other.size_), data_(std::move(other.data_)) { other.size_ = 0; }
 
     // Overloading the assignment operator to copy data from another Array object.
