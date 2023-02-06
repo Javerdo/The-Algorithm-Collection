@@ -4,7 +4,7 @@
 #include <ranges>
 #include <stdexcept>
 #include <span>
-#include <algorithmCollection/simpleAllocator.h>
+#include "simpleAllocator.h"
 
 // Dynamic array which increases size when at capacity
 template <typename T, typename Alloc = SimpleAllocator<T>>
@@ -31,14 +31,16 @@ public:
         : m_size(values.size()),
           m_capacity(values.size()),
           m_data(std::make_unique<T[]>(values.size())) {
-        std::ranges::copy(values.begin(), values.end(), m_data.get());
+        // std::ranges::copy(values.begin(), values.end(), m_data.get());  // Not working with c++ (yet)
+        std::copy(values.begin(), values.end(), m_data.get());
     }
 
     constexpr Darray(std::initializer_list<T> values) 
         : m_size(values.size()), 
           m_capacity(values.size()), 
           m_data(std::make_unique<T[]>(values.size())) {
-        std::ranges::copy(values.begin(), values.end(), m_data.get());
+        // std::ranges::copy(values.begin(), values.end(), m_data.get());  // Not working with c++ (yet)
+        std::copy(values.begin(), values.end(), m_data.get());
     }
 
     constexpr Darray(const Darray& other) 
@@ -186,7 +188,8 @@ public:
             }
 
             if (new_data.get() != m_data.get()) {
-                std::ranges::copy(m_data, m_data.get() + m_size, new_data.get());
+                //std::ranges::copy(m_data, m_data.get() + m_size, new_data.get()); // Not working with c++ (yet)
+                std::copy(m_data.get(), m_data.get() + m_size, new_data.get());
                 m_data = std::move(new_data);
                 m_capacity = new_capacity;
             }
