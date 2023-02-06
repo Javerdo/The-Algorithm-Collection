@@ -31,7 +31,6 @@ public:
         : m_size(values.size()),
           m_capacity(values.size()),
           m_data(std::make_unique<T[]>(values.size())) {
-        // std::ranges::copy(values.begin(), values.end(), m_data.get());  // Not working with c++ (yet)
         std::copy(values.begin(), values.end(), m_data.get());
     }
 
@@ -39,7 +38,6 @@ public:
         : m_size(values.size()), 
           m_capacity(values.size()), 
           m_data(std::make_unique<T[]>(values.size())) {
-        // std::ranges::copy(values.begin(), values.end(), m_data.get());  // Not working with c++ (yet)
         std::copy(values.begin(), values.end(), m_data.get());
     }
 
@@ -58,14 +56,17 @@ public:
         other.m_capacity = 0;
     }
 
-    // Overloading the assignment operator to copy data from another Darray object.
+    // Overloading the copy assignment operator to copy data from another Darray object.
     Darray& operator=(const Darray& other) noexcept {
         if (this != &other) {
             m_size = other.m_size;
             m_capacity = other.m_capacity;
             m_data = std::make_unique<T[]>(m_size);
-            // std::ranges::copy(other.m_data, m_data.get());
-            std::copy(other.begin(), other.end(), m_data.get());
+            if constexpr (std::is_trivially_copyable_v<T>) {
+                std::memcpy(m_data.get(), other.m_data.get(), m_size * sizeof(T));
+            } else {
+                std::copy(other.begin(), other.end(), m_data.get());
+            }
         }
 
         return *this;
@@ -115,20 +116,42 @@ public:
     // Checks whether array is empty or not
     constexpr bool empty() const { return m_size == 0; }
 
-    // Adds an element to the end of the array
+    // Add an element to the end of the array
     constexpr void push_back(const T& value) {
         if (m_size + 1 > m_capacity) {
-            // Double the capacity of the array if m_size + 1 > m_capacity
+            std::size_t new_capacity = m_capacity == 0 ? 1 : m_capacity * 2;
+            auto new_data = std::make_unique<T[]>(new_capacity);
+            std::copy(m_data.get(), m_data.get() + m_size, new_data.get());
+            m_data = std::move(new_data);
+            m_capacity = new_capacity;
+        }
+
+        m_data[m_size++] = value;
+    }
+
+    // Add an element to the front of the array
+    constexpr void push_front(const T& value) {
+        if (m_size + 1 > m_capacity) {
             m_capacity = m_capacity == 0 ? 1 : m_capacity * 2;
             auto new_data = std::make_unique<T[]>(m_capacity);
 
-            // Copy the elements from the current data to the new data
-            std::copy_n(m_data.get(), m_size, new_data.get());
-            m_data = std::move(new_data);
-        }
+            // Move all elements one position to the right
+            for (std::size_t i = m_size; i > 0; --i) {
+                new_data[i] = std::move(m_data[i - 1]);
+            }
 
-        // Add the new value to the end of the new data
-        m_data[m_size] = value;
+            // Add the new value to the beginning of the new data
+            new_data[0] = value;
+            m_data = std::move(new_data);
+        } else {
+            // Move all elements one position to the right
+            for (std::size_t i = m_size; i > 0; --i) {
+                m_data[i] = std::move(m_data[i - 1]);
+            }
+
+            // Add the new value to the beginning of the data
+            m_data[0] = value;
+        }
         ++m_size;
     }
 
@@ -148,7 +171,34 @@ public:
         m_size = new_size;
     }
 
-    // Inserts an element at a specified index of the array (Reallocation if size increases)
+    // remove the first element from the array
+    constexpr void pop_front() {
+        if (m_size == 0) {
+            throw std::out_of_range("Array is empty");
+        }
+
+        --m_size;
+        for (std::size_t i = 0; i < m_size; ++i) {
+            m_data[i] = std::move(m_data[i + 1]);
+        }
+    }
+
+    // remove element at index in the array
+    // - index: the index in array to remove
+    constexpr void remove(std::size_t index) {
+        if (index >= m_size) {
+            throw std::out_of_range("Index out of range");
+        }
+
+        // Shift all elements after the removed element to the left
+        for (std::size_t i = index; i < m_size - 1; ++i) {
+            m_data[i] = std::move(m_data[i + 1]);
+        }
+
+        --m_size;
+    }
+
+    // Insert an element at index of the array (Reallocation if capacity increases)
     // - index: the index to insert the element at
     // - value: the value to insert
     constexpr void insert(std::size_t index, const T& value) {
@@ -189,7 +239,6 @@ public:
             }
 
             if (new_data.get() != m_data.get()) {
-                //std::ranges::copy(m_data, m_data.get() + m_size, new_data.get()); // Not working with c++ (yet)
                 std::copy(m_data.get(), m_data.get() + m_size, new_data.get());
                 m_data = std::move(new_data);
                 m_capacity = new_capacity;

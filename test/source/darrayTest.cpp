@@ -55,6 +55,13 @@ TEST_CASE("Test push_back function") {
     CHECK(arr[1] == 2);
 }
 
+TEST_CASE("Test push_front function") {
+    Darray<int> arr = {1, 2, 3, 4, 5};
+    arr.push_front(0);
+    CHECK(arr.size() == 6);
+    CHECK(arr[0] == 0);
+}
+
 TEST_CASE("Test pop_back function") {
     Darray<int> arr = {1, 2, 3, 4, 5};
     arr.pop_back();
@@ -103,4 +110,36 @@ TEST_CASE("Test reserve function") {
         arr.reserve(2);
         CHECK(arr.capacity() == 10);
     }
+}
+
+TEST_CASE("Test remove function") {
+    Darray<int> arr;
+
+    arr.push_back(1);
+    arr.push_back(2);
+    arr.push_back(3);
+    arr.push_back(4);
+
+    // Test removing an element at the middle
+    arr.remove(1);
+    Darray<int> expected = {1, 3, 4};
+    CHECK(arr == expected);
+
+    // Test removing an element at the end
+    arr.remove(2);
+    expected = {1, 3};
+    CHECK(arr.data() == expected.data());
+
+    // Test removing an element at the beginning
+    arr.remove(0);
+    expected = {3};
+    CHECK(arr.data() == expected.data());
+
+    // Test removing the only element in the array
+    arr.remove(0);
+    expected = {};
+    CHECK(arr.data() == expected.data());
+
+    // Test removing from an empty array
+    CHECK_THROWS(arr.remove(0));
 }
