@@ -1,4 +1,4 @@
-#include <algorithm/darray.h>
+#include <algorithmCollection/darray.h>
 #include <iostream>
 
 int main(int argc, char** argv) {
