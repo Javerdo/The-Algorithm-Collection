@@ -47,7 +47,7 @@ public:
         : m_size(other.m_size), 
           m_capacity(other.m_size), 
           m_data(std::make_unique<T[]>(other.m_size)) {
-        std::ranges::copy_n(other.m_data.get(), other.m_size, m_data.get());
+        std::copy_n(other.m_data.get(), other.m_size, m_data.get());
     }
 
     constexpr Darray(Darray&& other) noexcept 
@@ -64,7 +64,8 @@ public:
             m_size = other.m_size;
             m_capacity = other.m_capacity;
             m_data = std::make_unique<T[]>(m_size);
-            std::ranges::copy(other.m_data, m_data.get());
+            // std::ranges::copy(other.m_data, m_data.get());
+            std::copy(other.begin(), other.end(), m_data.get());
         }
 
         return *this;
@@ -122,7 +123,7 @@ public:
             auto new_data = std::make_unique<T[]>(m_capacity);
 
             // Copy the elements from the current data to the new data
-            std::ranges::copy_n(m_data.get(), m_size, new_data.get());
+            std::copy_n(m_data.get(), m_size, new_data.get());
             m_data = std::move(new_data);
         }
 
@@ -142,7 +143,7 @@ public:
         auto new_data = std::make_unique<T[]>(new_size);
 
         // Copy all elements except the last one from the original array to the new array
-        std::ranges::copy_n(m_data.get(), std::min(m_size, new_size), new_data.get());
+        std::copy_n(m_data.get(), std::min(m_size, new_size), new_data.get());
         m_data = std::move(new_data);
         m_size = new_size;
     }
