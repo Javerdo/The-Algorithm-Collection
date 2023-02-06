@@ -121,23 +121,21 @@ public:
     // Add an element to the end of the array
     constexpr void push_back(const T& value) {
         if (m_size + 1 > m_capacity) {
-            std::size_t new_capacity = m_capacity == 0 ? 1 : m_capacity * 2;
-            auto new_data = std::make_unique<T[]>(new_capacity);
+            m_capacity = std::max(1u, static_cast<unsigned int>(m_capacity * 2));
+            auto new_data = std::make_unique<T[]>(m_capacity);
             std::copy(m_data.get(), m_data.get() + m_size, new_data.get());
 
             m_data.release();
             m_data = std::move(new_data);
-            m_capacity = new_capacity;
         }
 
-        ++m_size;
-        m_data[m_size] = value;
+        m_data[m_size++] = value;
     }
 
     // Add an element to the front of the array
     constexpr void push_front(const T& value) {
         if (m_size + 1 > m_capacity) {
-            m_capacity = m_capacity == 0 ? 1 : m_capacity * 2;
+            m_capacity = std::max(1u, static_cast<unsigned int>(m_capacity * 2));
             auto new_data = std::make_unique<T[]>(m_capacity);
 
             // Move all elements one position to the right
@@ -219,7 +217,7 @@ public:
         }
 
         if (m_size + 1 > m_capacity) {
-            m_capacity = m_capacity == 0 ? 1 : m_capacity * 2;
+            m_capacity = std::max(1u, static_cast<unsigned int>(m_capacity * 2));
             auto new_data = std::make_unique<T[]>(m_capacity);
 
             std::copy(m_data.get(), m_data.get() + index, new_data.get());
