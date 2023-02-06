@@ -4,6 +4,7 @@
 #include <ranges>
 #include <stdexcept>
 #include <span>
+#include <cstring>
 #include "simpleAllocator.h"
 
 // Dynamic array which increases size when at capacity
@@ -17,41 +18,41 @@ public:
     using span = std::span<T>;
     using const_span = std::span<const T>;
 
-    constexpr Darray() 
-        : m_size(0), 
-          m_capacity(0), 
-          m_data(nullptr) {}
+    constexpr Darray()
+        : m_size(0),
+        m_capacity(0),
+        m_data(nullptr) {}
 
-    constexpr explicit Darray(std::size_t size) 
-        : m_size(size), 
-          m_capacity(size), 
-          m_data(std::make_unique<T[]>(size)) {}
+    constexpr explicit Darray(std::size_t size)
+        : m_size(size),
+        m_capacity(size),
+        m_data(std::make_unique<T[]>(size)) {}
 
     constexpr explicit Darray(std::span<T> values)
         : m_size(values.size()),
-          m_capacity(values.size()),
-          m_data(std::make_unique<T[]>(values.size())) {
+        m_capacity(values.size()),
+        m_data(std::make_unique<T[]>(values.size())) {
         std::copy(values.begin(), values.end(), m_data.get());
     }
 
-    constexpr Darray(std::initializer_list<T> values) 
-        : m_size(values.size()), 
-          m_capacity(values.size()), 
-          m_data(std::make_unique<T[]>(values.size())) {
+    constexpr Darray(std::initializer_list<T> values)
+        : m_size(values.size()),
+        m_capacity(values.size()),
+        m_data(std::make_unique<T[]>(values.size())) {
         std::copy(values.begin(), values.end(), m_data.get());
     }
 
-    constexpr Darray(const Darray& other) 
-        : m_size(other.m_size), 
-          m_capacity(other.m_size), 
-          m_data(std::make_unique<T[]>(other.m_size)) {
+    constexpr Darray(const Darray& other)
+        : m_size(other.m_size),
+        m_capacity(other.m_size),
+        m_data(std::make_unique<T[]>(other.m_size)) {
         std::copy_n(other.m_data.get(), other.m_size, m_data.get());
     }
 
-    constexpr Darray(Darray&& other) noexcept 
-        : m_size(other.m_size), 
-          m_capacity(other.m_capacity), 
-          m_data(std::move(other.m_data)) {
+    constexpr Darray(Darray&& other) noexcept
+        : m_size(other.m_size),
+        m_capacity(other.m_capacity),
+        m_data(std::move(other.m_data)) {
         other.m_size = 0;
         other.m_capacity = 0;
     }
@@ -64,7 +65,8 @@ public:
             m_data = std::make_unique<T[]>(m_size);
             if constexpr (std::is_trivially_copyable_v<T>) {
                 std::memcpy(m_data.get(), other.m_data.get(), m_size * sizeof(T));
-            } else {
+            }
+            else {
                 std::copy(other.begin(), other.end(), m_data.get());
             }
         }
@@ -122,11 +124,14 @@ public:
             std::size_t new_capacity = m_capacity == 0 ? 1 : m_capacity * 2;
             auto new_data = std::make_unique<T[]>(new_capacity);
             std::copy(m_data.get(), m_data.get() + m_size, new_data.get());
+
+            m_data.release();
             m_data = std::move(new_data);
             m_capacity = new_capacity;
         }
 
-        m_data[m_size++] = value;
+        ++m_size;
+        m_data[m_size] = value;
     }
 
     // Add an element to the front of the array
@@ -142,8 +147,10 @@ public:
 
             // Add the new value to the beginning of the new data
             new_data[0] = value;
+            m_data.release();
             m_data = std::move(new_data);
-        } else {
+        }
+        else {
             // Move all elements one position to the right
             for (std::size_t i = m_size; i > 0; --i) {
                 m_data[i] = std::move(m_data[i - 1]);
@@ -162,25 +169,30 @@ public:
             throw std::logic_error("Array is empty");
         }
 
-        std::size_t new_size = m_size -1;
-        auto new_data = std::make_unique<T[]>(new_size);
+        --m_size;
+        auto new_data = std::make_unique<T[]>(m_size);
 
         // Copy all elements except the last one from the original array to the new array
-        std::copy_n(m_data.get(), std::min(m_size, new_size), new_data.get());
+        std::copy(m_data.get(), m_data.get() + std::min(m_size, m_size), new_data.get());
+        m_data.release();
         m_data = std::move(new_data);
-        m_size = new_size;
     }
 
     // remove the first element from the array
     constexpr void pop_front() {
-        if (m_size == 0) {
+        if (empty()) {
             throw std::out_of_range("Array is empty");
         }
 
         --m_size;
+        auto new_data = std::make_unique<T[]>(m_size);
+
         for (std::size_t i = 0; i < m_size; ++i) {
-            m_data[i] = std::move(m_data[i + 1]);
+            new_data[i] = std::move(m_data[i + 1]);
         }
+
+        m_data.release();
+        m_data = std::move(new_data);
     }
 
     // remove element at index in the array
@@ -201,20 +213,35 @@ public:
     // Insert an element at index of the array (Reallocation if capacity increases)
     // - index: the index to insert the element at
     // - value: the value to insert
-    constexpr void insert(std::size_t index, const T& value) {
+    void insert(std::size_t index, const T& value) {
         if (index > m_size) {
             throw std::out_of_range("Index out of range");
         }
 
-        // Allocate more memory
-        auto new_data = std::make_unique<T[]>(m_size + 1);
+        if (m_size + 1 > m_capacity) {
+            m_capacity = m_capacity == 0 ? 1 : m_capacity * 2;
+            auto new_data = std::make_unique<T[]>(m_capacity);
 
-        std::copy(m_data.get(), m_data.get() + index, new_data.get());
-        new_data[index] = value;
+            std::copy(m_data.get(), m_data.get() + index, new_data.get());
+            new_data[index] = value;
 
-        // Copy the elements after the insertion point
-        std::copy(m_data.get() + index, m_data.get() + m_size, new_data.get() + index + 1);
-        m_data = std::move(new_data);
+            // Copy the elements after the insertion point
+            std::copy(m_data.get() + index, m_data.get() + m_size, new_data.get() + index + 1);
+            m_data.release();
+            m_data = std::move(new_data);
+        }
+        else {
+            auto new_data = std::make_unique<T[]>(m_size + 1);
+
+            std::copy(m_data.get(), m_data.get() + index, new_data.get());
+            new_data[index] = value;
+
+            // Copy the elements after the insertion point
+            std::copy(m_data.get() + index, m_data.get() + m_size, new_data.get() + index + 1);
+            m_data.release();
+            m_data = std::move(new_data);
+        }
+
         ++m_size;
     }
 
@@ -227,7 +254,7 @@ public:
 
         return m_data[index];
     }
- 
+
     // Reserves storage space to store at least `new_capacity` elements in the array.
     // Note: If `new_capacity` is less than or equal to the current size of the custom array, the function does nothing.
     constexpr void reserve(std::size_t new_capacity) {
@@ -240,6 +267,7 @@ public:
 
             if (new_data.get() != m_data.get()) {
                 std::copy(m_data.get(), m_data.get() + m_size, new_data.get());
+                m_data.release();
                 m_data = std::move(new_data);
                 m_capacity = new_capacity;
             }
