@@ -27,6 +27,13 @@ public:
           m_capacity(size), 
           m_data(std::make_unique<T[]>(size)) {}
 
+    constexpr explicit Darray(std::span<T> values)
+        : m_size(values.size()),
+          m_capacity(values.size()),
+          m_data(std::make_unique<T[]>(values.size())) {
+        std::ranges::copy(values.begin(), values.end(), m_data.get());
+    }
+
     constexpr Darray(std::initializer_list<T> values) 
         : m_size(values.size()), 
           m_capacity(values.size()), 
@@ -53,7 +60,7 @@ public:
     Darray& operator=(const Darray& other) noexcept {
         if (this != &other) {
             m_size = other.m_size;
-            m_capacity = other.m_capacity
+            m_capacity = other.m_capacity;
             m_data = std::make_unique<T[]>(m_size);
             std::ranges::copy(other.m_data, m_data.get());
         }
