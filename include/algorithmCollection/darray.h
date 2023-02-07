@@ -93,11 +93,11 @@ public:
     } */
 
     // == operator on data
-    constexpr bool operator==(const Darray& lhs, const Darray& rhs) {
-        if (lhs.size() != rhs.size()) {
-            return false;
-        }
-        return std::equal(lhs.begin(), lhs.end(), rhs.begin());
+    constexpr bool operator==(const Darray& rhs) const {
+    if (this->size() != rhs.size()) {
+        return false;
+    }
+    return std::equal(this->begin(), this->end(), rhs.begin());
     }
 
     // Returns a reference to the element stored at the specified index in the array.
