@@ -58,7 +58,7 @@ public:
     }
 
     // Overloading the copy assignment operator to copy data from another Darray object.
-    Darray& operator=(const Darray& other) noexcept {
+    constexpr Darray& operator=(const Darray& other) noexcept {
         if (this != &other) {
             m_size = other.m_size;
             m_capacity = other.m_capacity;
@@ -75,13 +75,29 @@ public:
     }
 
     // Overloading the assignment operator to handle move semantics
-    Darray& operator=(Darray&& other) noexcept {
+    constexpr Darray& operator=(Darray&& other) noexcept {
         m_size = other.m_size;
         m_capacity = other.m_capacity;
         m_data = std::move(other.m_data);
         other.m_size = 0;
 
         return *this;
+    }
+
+    /*
+    constexpr bool operator==(const MyArray<T>& other) const {
+        const_span thisData = data();
+        const_span otherData = other.data();
+
+        return thisData == otherData;
+    } */
+
+    // == operator on data
+    constexpr bool operator==(const Darray& lhs, const Darray& rhs) {
+        if (lhs.size() != rhs.size()) {
+            return false;
+        }
+        return std::equal(lhs.begin(), lhs.end(), rhs.begin());
     }
 
     // Returns a reference to the element stored at the specified index in the array.

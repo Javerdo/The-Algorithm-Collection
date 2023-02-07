@@ -128,17 +128,17 @@ TEST_CASE("Test remove function") {
     // Test removing an element at the end
     arr.remove(2);
     expected = {1, 3};
-    CHECK(arr.data() == expected.data());
+    CHECK(arr == expected);
 
     // Test removing an element at the beginning
     arr.remove(0);
     expected = {3};
-    CHECK(arr.data() == expected.data());
+    CHECK(arr == expected);
 
     // Test removing the only element in the array
     arr.remove(0);
     expected = {};
-    CHECK(arr.data() == expected.data());
+    CHECK(arr == expected);
 
     // Test removing from an empty array
     CHECK_THROWS(arr.remove(0));
