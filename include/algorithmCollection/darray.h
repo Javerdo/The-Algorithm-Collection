@@ -151,9 +151,7 @@ public:
             auto new_data = std::make_unique<T[]>(m_capacity);
 
             // Move all elements one position to the right
-            for (std::size_t i = m_size; i > 0; --i) {
-                new_data[i] = std::move(m_data[i - 1]);
-            }
+            std::rotate(new_data.get(), new_data.get() + m_size, new_data.get() + m_size + 1);
 
             // Add the new value to the beginning of the new data
             new_data[0] = value;
@@ -162,13 +160,12 @@ public:
         }
         else {
             // Move all elements one position to the right
-            for (std::size_t i = m_size; i > 0; --i) {
-                m_data[i] = std::move(m_data[i - 1]);
-            }
+            std::rotate(m_data.get(), m_data.get() + m_size, m_data.get() + m_size + 1);
 
             // Add the new value to the beginning of the data
             m_data[0] = value;
         }
+
         ++m_size;
     }
 
@@ -197,9 +194,10 @@ public:
         --m_size;
         auto new_data = std::make_unique<T[]>(m_size);
 
-        for (std::size_t i = 0; i < m_size; ++i) {
-            new_data[i] = std::move(m_data[i + 1]);
-        }
+        std::move(
+            std::make_move_iterator(m_data.get() + 1), 
+            std::make_move_iterator(m_data.get() + m_size + 1), 
+            new_data.get());
 
         m_data.release();
         m_data = std::move(new_data);
@@ -212,10 +210,12 @@ public:
             throw std::out_of_range("Index out of range");
         }
 
-        // Shift all elements after the removed element to the left
-        for (std::size_t i = index; i < m_size - 1; ++i) {
-            m_data[i] = std::move(m_data[i + 1]);
+        if (m_size == 0) {
+            return;
         }
+
+        // Shift all elements after the removed element to the left (Does not matter if index is at end of array)
+        std::move_backward(m_data.get() + index + 1, m_data.get() + m_size, m_data.get() + m_size - 1);
 
         --m_size;
     }
