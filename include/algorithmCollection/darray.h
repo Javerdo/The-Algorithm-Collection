@@ -4,10 +4,10 @@
 #include <ranges>
 #include <stdexcept>
 #include <span>
-#include <cstring>
+#include <cstddef>
 #include "simpleAllocator.h"
 
-// Dynamic array which increases size when at capacity
+// Dynamic-sized array which increases size when at capacity
 template <typename T, typename Alloc = SimpleAllocator<T>>
 class Darray {
 public:
@@ -49,7 +49,7 @@ public:
         std::copy_n(other.m_data.get(), other.m_size, m_data.get());
     }
 
-    constexpr Darray(Darray&& other) noexcept
+    constexpr Darray(Darray&& other)
         : m_size(other.m_size),
         m_capacity(other.m_capacity),
         m_data(std::move(other.m_data)) {
@@ -63,14 +63,19 @@ public:
             m_size = other.m_size;
             m_capacity = other.m_capacity;
             m_data = std::make_unique<T[]>(m_size);
+
             if constexpr (std::is_trivially_copyable_v<T>) {
-                std::memcpy(m_data.get(), other.m_data.get(), m_size * sizeof(T));
+                std::wmemcpy(m_data.get(), other.m_data.get(), m_size * sizeof(T));
             }
             else {
-                std::copy(other.begin(), other.end(), m_data.get());
+                std::span<const T> new_data(other.m_data.get(), other.m_size);
+                std::ranges::copy(new_data, m_data.get());
+                
+                if constexpr (!std::is_trivially_destructible_v<T>) {
+                    std::destroy_n(m_data.get(), m_size);
+                }
             }
         }
-
         return *this;
     }
 
@@ -84,58 +89,49 @@ public:
         return *this;
     }
 
-    /*
-    constexpr bool operator==(const MyArray<T>& other) const {
-        const_span thisData = data();
-        const_span otherData = other.data();
-
-        return thisData == otherData;
-    } */
-
-    // == operator on data
-    constexpr bool operator==(const Darray& rhs) const {
-    if (this->size() != rhs.size()) {
-        return false;
-    }
-    return std::equal(this->begin(), this->end(), rhs.begin());
+    constexpr bool operator==(const Darray& rhs) const noexcept {
+        if (this->size() != rhs.size()) {
+            return false;
+        }
+        return std::equal(this->begin(), this->end(), rhs.begin());
     }
 
     // Returns a reference to the element stored at the specified index in the array.
-    T& operator[](std::size_t index) { return m_data[index]; }
+    constexpr T& operator[](std::size_t index) noexcept { return m_data[index]; }
 
     // Returns a constant reference to the element stored at the specified index in the array.
-    const T& operator[](std::size_t index) const { return m_data[index]; }
+    constexpr const T& operator[](std::size_t index) const noexcept { return m_data[index]; }
 
-    constexpr iterator begin() { return m_data.get(); }
-    constexpr const_iterator begin() const { return m_data.get(); }
-    constexpr const_iterator cbegin() const { return begin(); }
-    constexpr iterator end() { return m_data.get() + m_size; }
-    constexpr const_iterator end() const { return m_data.get() + m_size; }
-    constexpr const_iterator cend() const { return end(); }
-    constexpr reverse_iterator rbegin() { return reverse_iterator(end()); }
-    constexpr const_reverse_iterator rbegin() const { return const_reverse_iterator(end()); }
-    constexpr const_reverse_iterator crbegin() const { return rbegin(); }
-    constexpr reverse_iterator rend() { return reverse_iterator(begin()); }
-    constexpr const_reverse_iterator rend() const { return const_reverse_iterator(begin()); }
-    constexpr const_reverse_iterator crend() const { return rend(); }
+    constexpr iterator begin() noexcept { return m_data.get(); }
+    constexpr const_iterator begin() const noexcept { return m_data.get(); }
+    constexpr const_iterator cbegin() const noexcept { return begin(); }
+    constexpr iterator end() noexcept { return m_data.get() + m_size; }
+    constexpr const_iterator end() const noexcept { return m_data.get() + m_size; }
+    constexpr const_iterator cend() const noexcept { return end(); }
+    constexpr reverse_iterator rbegin() noexcept { return reverse_iterator(end()); }
+    constexpr const_reverse_iterator rbegin() const noexcept { return const_reverse_iterator(end()); }
+    constexpr const_reverse_iterator crbegin() const noexcept { return rbegin(); }
+    constexpr reverse_iterator rend() noexcept { return reverse_iterator(begin()); }
+    constexpr const_reverse_iterator rend() const noexcept { return const_reverse_iterator(begin()); }
+    constexpr const_reverse_iterator crend() const noexcept { return rend(); }
 
     // Returns a non-const span object that provides pointer access to the underlying stored data.
-    constexpr span data() { return { m_data.get(), m_size }; }
+    constexpr span data() noexcept { return { m_data.get(), m_size }; }
 
     // Returns a const span object that provides read-only pointer access to the underlying stored data.
-    constexpr const_span data() const { return { m_data.get(), m_size }; }
+    constexpr const_span data() const noexcept { return { m_data.get(), m_size }; }
 
     // Returns size of array
-    constexpr std::size_t size() const { return m_size; }
+    constexpr std::size_t size() const noexcept { return m_size; }
 
     // Returns capacity of array
-    constexpr std::size_t capacity() const { return m_capacity; }
+    constexpr std::size_t capacity() const noexcept { return m_capacity; }
 
     // Checks whether array is empty or not
-    constexpr bool empty() const { return m_size == 0; }
+    constexpr bool empty() const noexcept { return m_size == 0; }
 
     // Add an element to the end of the array
-    constexpr void push_back(const T& value) {
+    constexpr void push_back(const T& value) noexcept {
         if (m_size + 1 > m_capacity) {
             m_capacity = std::max(1u, static_cast<unsigned int>(m_capacity * 2));
             auto new_data = std::make_unique<T[]>(m_capacity);
@@ -149,7 +145,7 @@ public:
     }
 
     // Add an element to the front of the array
-    constexpr void push_front(const T& value) {
+    constexpr void push_front(const T& value) noexcept {
         if (m_size + 1 > m_capacity) {
             m_capacity = std::max(1u, static_cast<unsigned int>(m_capacity * 2));
             auto new_data = std::make_unique<T[]>(m_capacity);
@@ -195,7 +191,7 @@ public:
     // remove the first element from the array
     constexpr void pop_front() {
         if (empty()) {
-            throw std::out_of_range("Array is empty");
+            throw std::logic_error("Array is empty");
         }
 
         --m_size;
@@ -227,7 +223,7 @@ public:
     // Insert an element at index of the array (Reallocation if capacity increases)
     // - index: the index to insert the element at
     // - value: the value to insert
-    void insert(std::size_t index, const T& value) {
+    constexpr void insert(std::size_t index, const T& value) {
         if (index > m_size) {
             throw std::out_of_range("Index out of range");
         }
