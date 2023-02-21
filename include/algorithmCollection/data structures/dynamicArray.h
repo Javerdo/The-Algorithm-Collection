@@ -78,8 +78,8 @@ public:
         : m_size(other.m_size),
         m_capacity(other.m_size),
         m_original_capacity(other.m_original_capacity),
-        m_data(m_allocator.allocate(other.size()), ArrayDeleter<T, Alloc>(m_allocator, m_size, m_capacity)),
-        m_allocator(Alloc()) {
+        m_data(other.m_allocator.allocate(other.size()), ArrayDeleter<T, Alloc>(m_allocator, m_size, m_capacity)),
+        m_allocator(other.m_allocator) {
         std::uninitialized_copy(other.m_data.get(), other.m_data.get() + other.m_size, m_data.get());
     }
 
@@ -88,7 +88,7 @@ public:
         m_capacity(other.m_capacity),
         m_original_capacity(other.m_original_capacity),
         m_data(std::move(other.m_data)),
-        m_allocator(Alloc()) {
+        m_allocator(other.m_allocator) {
         other.m_size = 0;
         other.m_capacity = 0;
     }
