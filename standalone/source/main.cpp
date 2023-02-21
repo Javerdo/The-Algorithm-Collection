@@ -3,7 +3,7 @@
 
 int main(int argc, char** argv) {
 
-    Darray<int> arr = { 1, 2, 3, 4, 5 };
+    DynamicArray<int> arr = { 1, 2, 3, 4, 5 };
 
     std::cout << "Darray size: " << arr.size() << std::endl;
 
