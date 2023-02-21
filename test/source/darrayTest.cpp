@@ -1,20 +1,20 @@
 #include <doctest/doctest.h>
-#include <algorithmCollection/darray.h>
+#include <algorithmCollection/data structures/dynamicArray.h>
 
 TEST_CASE("Test default constructor") {
-    Darray<int> arr;
+    DynamicArray<int> arr;
     CHECK(arr.empty());
     CHECK(arr.size() == 0);
 }
 
 TEST_CASE("Test size constructor") {
-    Darray<int> arr(10);
+    DynamicArray<int> arr(10);
     CHECK(!arr.empty());
     CHECK(arr.size() == 10);
 }
 
 TEST_CASE("Test initializer list constructor") {
-    Darray<int> arr = {1, 2, 3, 4, 5};
+    DynamicArray<int> arr = {1, 2, 3, 4, 5};
     CHECK(arr.size() == 5);
     CHECK(arr[0] == 1);
     CHECK(arr[4] == 5);
@@ -22,23 +22,23 @@ TEST_CASE("Test initializer list constructor") {
 
 TEST_CASE("Test span constructor") {
     int data[] = {1, 2, 3, 4, 5};
-    Darray<int> arr(std::span(data, 5));
+    DynamicArray<int> arr(std::span(data, 5));
     CHECK(arr.size() == 5);
     CHECK(arr[0] == 1);
     CHECK(arr[4] == 5);
 }
 
 TEST_CASE("Test copy constructor") {
-    Darray<int> arr1 = {1, 2, 3, 4, 5};
-    Darray<int> arr2(arr1);
+    DynamicArray<int> arr1 = {1, 2, 3, 4, 5};
+    DynamicArray<int> arr2(arr1);
     CHECK(arr1.size() == arr2.size());
     CHECK(arr1[0] == arr2[0]);
     CHECK(arr1[4] == arr2[4]);
 }
 
 TEST_CASE("Test move constructor") {
-    Darray<int> arr1 = {1, 2, 3, 4, 5};
-    Darray<int> arr2(std::move(arr1));
+    DynamicArray<int> arr1 = {1, 2, 3, 4, 5};
+    DynamicArray<int> arr2(std::move(arr1));
     CHECK(arr1.empty());
     CHECK(arr2.size() == 5);
     CHECK(arr2[0] == 1);
@@ -46,7 +46,7 @@ TEST_CASE("Test move constructor") {
 }
 
 TEST_CASE("Test push_back function") {
-    Darray<int> arr;
+    DynamicArray<int> arr;
     arr.push_back(1);
     CHECK(arr.size() == 1);
     CHECK(arr[0] == 1);
@@ -56,14 +56,14 @@ TEST_CASE("Test push_back function") {
 }
 
 TEST_CASE("Test push_front function") {
-    Darray<int> arr = {1, 2, 3, 4, 5};
+    DynamicArray<int> arr = {1, 2, 3, 4, 5};
     arr.push_front(0);
     CHECK(arr.size() == 6);
     CHECK(arr[0] == 0);
 }
 
 TEST_CASE("Test pop_back function") {
-    Darray<int> arr = {1, 2, 3, 4, 5};
+    DynamicArray<int> arr = {1, 2, 3, 4, 5};
     arr.pop_back();
     CHECK(arr.size() == 4);
     CHECK(arr[3] == 4);
@@ -73,19 +73,19 @@ TEST_CASE("Test pop_back function") {
 }
 
 TEST_CASE("Test insert function") {
-    Darray<int> arr = {1, 2, 3, 4, 5};
+    DynamicArray<int> arr = {1, 2, 3, 4, 5};
     arr.insert(2, 6);
     CHECK(arr.size() == 6);
 }
 
 TEST_CASE("Test data function") {
-    Darray<int> arr = {1, 2, 3, 4, 5};
+    DynamicArray<int> arr = {1, 2, 3, 4, 5};
     CHECK(arr.data().front() == 1);
     CHECK(arr.data().back() == 5);
 }
 
 TEST_CASE("Test at function") {
-    Darray<int> arr = {1, 2, 3, 4, 5};
+    DynamicArray<int> arr = {1, 2, 3, 4, 5};
 
     SUBCASE("Valid index") {
         CHECK_NOTHROW(arr.at(0));
@@ -99,7 +99,7 @@ TEST_CASE("Test at function") {
 }
 
 TEST_CASE("Test reserve function") {
-    Darray<int> arr;
+    DynamicArray<int> arr;
     arr.reserve(10);
 
     SUBCASE("Capacity increase") {
@@ -113,7 +113,7 @@ TEST_CASE("Test reserve function") {
 }
 
 TEST_CASE("Test remove function") {
-    Darray<int> arr;
+    DynamicArray<int> arr;
 
     arr.push_back(1);
     arr.push_back(2);
@@ -122,7 +122,7 @@ TEST_CASE("Test remove function") {
 
     // Test removing an element at the middle
     arr.remove(1);
-    Darray<int> expected = {1, 3, 4};
+    DynamicArray<int> expected = {1, 3, 4};
     CHECK(arr == expected);
 
     // Test removing an element at the end

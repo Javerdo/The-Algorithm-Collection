@@ -5,11 +5,11 @@
 #include <stdexcept>
 #include <cstddef>
 #include <span>
-#include "simpleAllocator.h"
+#include "../allocators/simpleAllocator.h"
 
 // Fixed-size array with memory safety
 template <typename T, std::size_t S, typename Alloc = SimpleAllocator<T>>
-class Farray {
+class FixedArray {
 public:
     using iterator = T*;
     using const_iterator = const T*;
@@ -18,12 +18,12 @@ public:
     using span = std::span<T>;
     using const_span = std::span<const T>;
 
-    constexpr Farray() {
+    constexpr FixedArray() {
         allocate_memory();
         std::fill(m_data.begin(), m_data.end(), T{});
     }
 
-    constexpr Farray(std::initializer_list<T> values) : m_data(nullptr) {
+    constexpr FixedArray(std::initializer_list<T> values) : m_data(nullptr) {
         if (values.size() > S) {
             throw std::invalid_argument("Initializer list size is greater than array size");
         }
@@ -31,21 +31,21 @@ public:
         std::copy(values.begin(), values.end(), m_data.begin());
     }
 
-    constexpr Farray(const Farray& other) : m_data(nullptr) {
+    constexpr FixedArray(const FixedArray& other) : m_data(nullptr) {
         allocate_memory();
         std::copy(other.cbegin(), other.cend(), m_data.begin());
     }
 
-    ~Farray() {
+    ~FixedArray() {
         deallocate_memory();
     }
 
-    constexpr Farray& operator=(const Farray& other) noexcept {
+    constexpr FixedArray& operator=(const FixedArray& other) noexcept {
         if (this == &other) { return *this; }
         
         if (other.size() > S) {
             // Allocate a new array of the appropriate size
-            Farray<T, other.size()> new_data;
+            FixedArray<T, other.size()> new_data;
             
             // Copy elements from the old and new arrays to the new array
             std::copy(other.cbegin(), other.cend(), new_data.begin());
@@ -77,11 +77,11 @@ public:
         return m_data[index]; 
     }
 
-    constexpr bool operator==(const Farray& lhs, const Farray& rhs) noexcept { 
+    constexpr bool operator==(const FixedArray& lhs, const FixedArray& rhs) noexcept { 
         return std::equal(lhs.cbegin(), lhs.cend(), rhs.cbegin());
     }
 
-    constexpr bool operator!=(const Farray& lhs, const Farray& rhs) noexcept { 
+    constexpr bool operator!=(const FixedArray& lhs, const FixedArray& rhs) noexcept { 
         return !(lhs == rhs); 
     }
 
@@ -161,7 +161,7 @@ public:
     }
 
     // Swaps data with target array
-    void swap(Farray& other) noexcept {
+    void swap(FixedArray& other) noexcept {
         std::swap(m_data, other.m_data);
     }
 
