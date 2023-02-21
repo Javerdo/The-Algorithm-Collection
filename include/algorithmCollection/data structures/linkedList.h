@@ -291,7 +291,7 @@ public:
             std::allocator_traits<allocator_type>::allocate(node_allocator, 1),
             [&](Node* n) {
                 std::allocator_traits<allocator_type>::destroy(node_allocator, n);
-        std::allocator_traits<allocator_type>::deallocate(node_allocator, n, 1);
+                std::allocator_traits<allocator_type>::deallocate(node_allocator, n, 1);
             }
         );
 
@@ -326,7 +326,7 @@ public:
                 std::allocator_traits<allocator_type>::allocate(node_allocator, 1),
                 [&](Node* n) {
                     std::allocator_traits<allocator_type>::destroy(node_allocator, n);
-            std::allocator_traits<allocator_type>::deallocate(node_allocator, n, 1);
+                    std::allocator_traits<allocator_type>::deallocate(node_allocator, n, 1);
                 }
             );
 
@@ -363,7 +363,7 @@ public:
                 std::allocator_traits<allocator_type>::allocate(node_allocator, 1),
                 [&](Node* n) {
                     std::allocator_traits<allocator_type>::destroy(node_allocator, n);
-            std::allocator_traits<allocator_type>::deallocate(node_allocator, n, 1);
+                    std::allocator_traits<allocator_type>::deallocate(node_allocator, n, 1);
                 }
             );
 
@@ -428,7 +428,7 @@ public:
             std::allocator_traits<allocator_type>::allocate(node_allocator, 1),
             [&](Node* n) {
                 std::allocator_traits<allocator_type>::destroy(node_allocator, n);
-        std::allocator_traits<allocator_type>::deallocate(node_allocator, n, 1);
+                std::allocator_traits<allocator_type>::deallocate(node_allocator, n, 1);
             }
         );
 
@@ -461,7 +461,7 @@ public:
             std::allocator_traits<allocator_type>::allocate(node_allocator, 1),
             [&](Node* n) {
                 std::allocator_traits<allocator_type>::destroy(node_allocator, n);
-        std::allocator_traits<allocator_type>::deallocate(node_allocator, n, 1);
+                std::allocator_traits<allocator_type>::deallocate(node_allocator, n, 1);
             }
         );
         std::allocator_traits<allocator_type>::construct(node_allocator, newNode.get(),
@@ -491,7 +491,7 @@ public:
             std::allocator_traits<allocator_type>::allocate(node_allocator, 1),
             [&](Node* n) {
                 std::allocator_traits<allocator_type>::destroy(node_allocator, n);
-        std::allocator_traits<allocator_type>::deallocate(node_allocator, n, 1);
+                std::allocator_traits<allocator_type>::deallocate(node_allocator, n, 1);
             }
         );
         std::allocator_traits<allocator_type>::construct(node_allocator, newNode.get(),

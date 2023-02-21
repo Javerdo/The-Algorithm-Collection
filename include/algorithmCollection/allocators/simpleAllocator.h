@@ -1,22 +1,40 @@
 #pragma once
+#include <utility>
 
-// Simple Allocator
 template <typename T>
 class SimpleAllocator {
-    public:
+public:
     using value_type = T;
 
     T* allocate(std::size_t n) {
-        return static_cast<T*>(malloc(n * sizeof(T)));
+        if (n == 0) {
+            return nullptr;
+        }
+        return static_cast<T*>(::operator new(n * sizeof(T)));
+    }
+
+    T* allocate(std::size_t n) const {
+        if (n == 0) {
+            return nullptr;
+        }
+        return static_cast<T*>(::operator new(n * sizeof(T)));
     }
 
     void deallocate(T* p, std::size_t n) {
-        free(p);
+        static_cast<void>(n); // Silence the -werror=unused warning. TODO: use the parameter properly.
+        if (p) {
+            std::free(p);
+        }
     }
 
     template <typename U, typename... Args>
     void construct(U* p, Args&&... args) {
         new (p) U(std::forward<Args>(args)...);
+    }
+
+    template <typename U>
+    void construct(U* p, const T& value) {
+        new (p) U(value);
     }
 
     void destroy(T* p) {

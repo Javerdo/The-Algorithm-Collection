@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <span>
 #include <cstddef>
+#include <cstring>
 #include "../allocators/simpleAllocator.h"
 
 // Dynamic-sized array which increases size when at capacity
@@ -32,31 +33,40 @@ public:
     constexpr const_reverse_iterator crend() const noexcept { return rend(); }
 
     constexpr DynamicArray()
-        : m_size(0), m_allocator(Alloc()),
-        m_capacity(0), m_original_capacity(0), m_data(nullptr) {}
-
-    
+        : m_size(0),
+        m_capacity(0),
+        m_original_capacity(0),
+        m_data(nullptr, ArrayDeleter<T, Alloc>()),
+        m_allocator(Alloc()) {}
 
     constexpr explicit DynamicArray(std::size_t size, const Alloc& alloc = Alloc())
-        : m_size(size), m_capacity(size), m_original_capacity(0),
-        m_data(alloc.allocate(size), ArrayDeleter<T, Alloc>(alloc, size)) {
+        : m_size(size),
+        m_capacity(size),
+        m_original_capacity(0),
+        m_data(alloc.allocate(size), ArrayDeleter<T, Alloc>(alloc, size, m_capacity)),
+        m_allocator(alloc) {
         for (size_t i = 0; i < m_size; ++i) {
-            std::allocator_traits<Alloc>::construct(alloc, m_data.get() + i);
+            std::allocator_traits<Alloc>::construct(const_cast<Alloc&>(m_allocator), m_data.get() + i);
         }
     }
 
     constexpr explicit DynamicArray(std::span<const T> values, const Alloc& alloc = Alloc())
-        : m_size(values.size()), m_capacity(values.size()), m_original_capacity(0),
-        m_data(alloc.allocate(values.size()), ArrayDeleter<T, Alloc>(alloc, m_size)) {
+        : m_size(values.size()),
+        m_capacity(values.size()),
+        m_original_capacity(0),
+        m_data(alloc.allocate(values.size()), ArrayDeleter<T, Alloc>(alloc, m_size, m_capacity)),
+        m_allocator(alloc) {
         for (size_t i = 0; i < m_size; ++i) {
-            std::allocator_traits<Alloc>::construct(alloc, m_data.get() + i, values[i]);
+            std::allocator_traits<Alloc>::construct(const_cast<Alloc&>(m_allocator), m_data.get() + i, values[i]);
         }
     }
 
     DynamicArray(std::initializer_list<T> values, Alloc alloc = Alloc())
-        : m_size(values.size()), m_capacity(values.size()), m_original_capacity(0),
-        m_data(alloc.allocate(values.size()), ArrayDeleter<T, Alloc>(alloc, m_size))
-    {
+        : m_size(values.size()),
+        m_capacity(values.size()),
+        m_original_capacity(0),
+        m_data(alloc.allocate(values.size()), ArrayDeleter<T, Alloc>(alloc, m_size, m_capacity)),
+        m_allocator(alloc) {
         size_t i = 0;
         for (const auto& value : values) {
             alloc.construct(m_data.get() + i, value);
@@ -65,17 +75,20 @@ public:
     }
 
     constexpr DynamicArray(const DynamicArray& other)
-        : m_size(other.m_size), m_capacity(other.m_size), 
-        m_original_capacity(other.m_original_capacity), m_allocator(Alloc()),
-        m_data(m_allocator.allocate(other.size()), ArrayDeleter<T, Alloc>(m_allocator, m_size)) {
+        : m_size(other.m_size),
+        m_capacity(other.m_size),
+        m_original_capacity(other.m_original_capacity),
+        m_data(m_allocator.allocate(other.size()), ArrayDeleter<T, Alloc>(m_allocator, m_size, m_capacity)),
+        m_allocator(Alloc()) {
         std::uninitialized_copy(other.m_data.get(), other.m_data.get() + other.m_size, m_data.get());
     }
 
     constexpr DynamicArray(DynamicArray&& other)
-        : m_size(other.m_size), m_allocator(Alloc()),
-        m_capacity(other.m_capacity), 
+        : m_size(other.m_size),
+        m_capacity(other.m_capacity),
         m_original_capacity(other.m_original_capacity),
-        m_data(std::move(other.m_data)) {
+        m_data(std::move(other.m_data)),
+        m_allocator(Alloc()) {
         other.m_size = 0;
         other.m_capacity = 0;
     }
@@ -154,29 +167,25 @@ public:
     constexpr bool empty() const noexcept { return m_size == 0; }
 
     // Add an element to the end of the array
-    constexpr void push_back(const T& value) {
+    void push_back(const T& value) {
         if (m_size == m_capacity) {
-            m_original_capacity = m_capacity; // update m_original_capacity
-            m_capacity = m_capacity == 0 ? 1 : m_capacity * 2;
-            auto new_data = std::allocator_traits<Alloc>::allocate(m_allocator, m_capacity);
+            // Allocate new memory
+            std::size_t new_capacity = m_capacity == 0 ? 1 : m_capacity * 2;
+            T* new_data = std::allocator_traits<Alloc>::allocate(m_allocator, new_capacity);
 
-            // Copy the elements from the old array to the new array
-            std::uninitialized_copy(m_data.get(), m_data.get() + m_size, new_data);
+            // Copy elements to new memory
+            std::uninitialized_copy_n(m_data.get(), m_size, new_data);
 
-            // Destroy the old elements in the old array
-            for (size_t i = 0; i < m_size; ++i) {
-                std::allocator_traits<Alloc>::destroy(m_allocator, m_data.get() + i);
-            }
+            // Destroy old elements and deallocate old memory
+            std::unique_ptr<T[], ArrayDeleter<T, Alloc>> old_data(m_data.release(), ArrayDeleter<T, Alloc>(m_allocator, m_size, m_capacity));
+            m_capacity = new_capacity;
 
-            // Deallocate the memory used by the old array
-            std::allocator_traits<Alloc>::deallocate(m_allocator, m_data.get(), m_original_capacity);
-
-            // Point to the new array
-            auto new_data_ptr = std::unique_ptr<T[], ArrayDeleter<T, Alloc>>(new_data, ArrayDeleter<T, Alloc>(m_allocator, m_size));
-            m_data = std::move(new_data_ptr);
+            // Create a new unique_ptr to hold the new memory and transfer ownership
+            std::unique_ptr<T[], ArrayDeleter<T, Alloc>> new_data_ptr(new_data, ArrayDeleter<T, Alloc>(m_allocator, m_size, new_capacity));
+            std::swap(m_data, new_data_ptr);
         }
 
-        // Add the new element to the end of the array
+        // Construct new element
         std::allocator_traits<Alloc>::construct(m_allocator, m_data.get() + m_size, value);
         ++m_size;
     }
@@ -352,52 +361,65 @@ public:
                 throw std::bad_alloc();
             }
 
-            if (new_data.get() != m_data.get()) {
+            if (new_data != m_data.get()) {
                 std::uninitialized_copy(m_data.get(), m_data.get() + m_size, new_data);
                 std::allocator_traits<Alloc>::deallocate(m_allocator, m_data.release(), m_capacity);
                 m_data.release();
-                m_data = std::move(new_data);
+
+                auto new_data_ptr = std::unique_ptr<T[], ArrayDeleter<T, Alloc>>(new_data, ArrayDeleter<T, Alloc>(m_allocator, m_size, m_capacity));
+                m_data = std::move(new_data_ptr);
                 m_capacity = new_capacity;
             }
         }
     }
 
 private:
-    template <typename T, typename Alloc>
+    template <typename T1, typename Alloc1>
     class ArrayDeleter {
     public:
-        explicit ArrayDeleter(Alloc& alloc, size_t size)
-            : m_allocator(alloc), m_size(size), m_num_destroyed(0) {}
+        ArrayDeleter()
+            : m_allocator(Alloc1()), m_size(0), m_capacity(0), m_num_destroyed(0) {}
 
-        void operator()(T* data) {
+        explicit ArrayDeleter(Alloc1& alloc, std::size_t size, std::size_t capacity)
+            : m_allocator(alloc), m_size(size), m_capacity(capacity), m_num_destroyed(0) {}
+
+        explicit ArrayDeleter(const Alloc& alloc, std::size_t size, std::size_t capacity)
+            : m_allocator(alloc), m_size(size), m_capacity(capacity), m_num_destroyed(0) {}
+
+        void operator()(T1* data) {
             if (data) {
-                for (size_t i = 0; i < m_num_destroyed; ++i) {
-                    std::allocator_traits<Alloc>::destroy(m_allocator, data + i);
+                for (size_t i = 0; i < m_size; ++i) {
+                    std::allocator_traits<Alloc1>::destroy(m_allocator, data + i);
                 }
-                if (m_num_destroyed == m_size) {
-                    std::allocator_traits<Alloc>::deallocate(m_allocator, data, m_size);
+
+                if (m_num_destroyed == m_size - 1) {
+                    std::allocator_traits<Alloc1>::deallocate(m_allocator, data, m_capacity);
                 }
+
+                ++m_num_destroyed;
             }
         }
 
         // Move constructor and move assignment operator
-        ArrayDeleter(ArrayDeleter&& other) noexcept 
-            : m_allocator(other.m_allocator), m_size(other.m_size), m_num_destroyed(0) {}
-        
+        ArrayDeleter(ArrayDeleter&& other) noexcept
+            : m_allocator(other.m_allocator), 
+            m_size(other.m_size), 
+            m_capacity(other.m_capacity), 
+            m_num_destroyed(other.m_num_destroyed) {}
+
         ArrayDeleter& operator=(ArrayDeleter&& other) noexcept {
             m_allocator = other.m_allocator;
             m_size = other.m_size;
+            m_capacity = other.m_capacity;
+            m_num_destroyed = other.m_num_destroyed;
             return *this;
         }
 
-        void set_num_destroyed(size_t num_destroyed) {
-            m_num_destroyed = num_destroyed;
-        }
-
     private:
-        Alloc& m_allocator;
-        size_t m_size;
-        size_t m_num_destroyed;
+        Alloc1 m_allocator;
+        std::size_t m_size;
+        std::size_t m_capacity;
+        std::size_t m_num_destroyed;
     };
 
     std::size_t m_size;
