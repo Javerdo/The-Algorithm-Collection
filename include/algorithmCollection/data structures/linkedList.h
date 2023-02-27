@@ -39,21 +39,21 @@ public:
     constexpr const_reverse_iterator crend() const noexcept { return rend(); }
 
     explicit DoubleLinkedList(const Alloc& alloc = Alloc())
-        : allocator(alloc), head(nullptr), tail(nullptr), m_size(0) {}
+        : m_allocator(alloc), head(nullptr), tail(nullptr), m_size(0) {}
 
     DoubleLinkedList(std::size_t size, const T& value, const Alloc& alloc = alloc())
-        : allocator(alloc), head(nullptr), tail(nullptr), m_size(0) {
+        : m_allocator(alloc), head(nullptr), tail(nullptr), m_size(0) {
         for (std::size_t i = 0; i < size; ++i) {
             push_back(value);
         }
     }
 
     explicit DoubleLinkedList(std::size_t size, const Alloc& alloc = alloc())
-        : allocator(alloc), head(nullptr), tail(nullptr), m_size(0) {}
+        : m_allocator(alloc), head(nullptr), tail(nullptr), m_size(0) {}
 
     template <class InputIt>
     DoubleLinkedList(InputIt first, InputIt last, const Alloc& alloc = alloc())
-        : allocator(alloc), head(nullptr), tail(nullptr), m_size(0) {
+        : m_allocator(alloc), head(nullptr), tail(nullptr), m_size(0) {
         while (first != last) {
             push_back(*first);
             ++first;
@@ -64,14 +64,14 @@ public:
         : DoubleLinkedList(other, other.get_allocator()) {}
 
     DoubleLinkedList(const DoubleLinkedList& other, const Alloc& alloc)
-        : allocator(alloc), head(nullptr), tail(nullptr), m_size(0) {
+        : m_allocator(alloc), head(nullptr), tail(nullptr), m_size(0) {
         for (const auto& value : other) {
             push_back(value);
         }
     }
 
     DoubleLinkedList(DoubleLinkedList&& other)
-        : allocator(std::move(other.get_allocator())), head(std::move(other.head)),
+        : m_allocator(std::move(other.get_allocator())), head(std::move(other.head)),
         tail(std::move(other.tail)), m_size(other.m_size) {
         other.head = nullptr;
         other.tail = nullptr;
@@ -79,8 +79,8 @@ public:
     }
 
     DoubleLinkedList(DoubleLinkedList&& other, const Alloc& alloc)
-        : allocator(alloc), head(nullptr), tail(nullptr), m_size(0) {
-        if (allocator == other.get_allocator()) {
+        : m_allocator(alloc), head(nullptr), tail(nullptr), m_size(0) {
+        if (m_allocator == other.get_allocator()) {
             head = std::move(other.head);
             tail = std::move(other.tail);
             m_size = other.m_size;
@@ -116,7 +116,7 @@ public:
     DoubleLinkedList& operator=(DoubleLinkedList&& other) noexcept {
         if (this != &other) {
             clear();
-            allocator = std::move(other.allocator);
+            m_allocator = std::move(other.m_allocator);
             head = std::move(other.head);
             tail = std::move(other.tail);
             m_size = other.m_size;
@@ -140,9 +140,7 @@ public:
     }
 
     // Comparison operator
-    template <class T1, class Alloc>
-    friend std::strong_ordering operator<=>(
-        const DoubleLinkedList<T1, Alloc>& lhs, const DoubleLinkedList<T1, Alloc>& rhs) {
+    std::strong_ordering operator<=>(const DoubleLinkedList<T, Alloc>& lhs, const DoubleLinkedList<T, Alloc>& rhs) {
         auto l_iter = lhs.begin(), l_end = lhs.end();
         auto r_iter = rhs.begin(), r_end = rhs.end();
 
@@ -170,8 +168,8 @@ public:
     std::size_t size() const noexcept { return m_size; }
     [[nodiscard]] constexpr bool empty() const noexcept { return m_size == 0; }
 
-    // Returns allocator associated with the linked list
-    Alloc get_allocator() const noexcept { return allocator; }
+    // Returns m_allocator associated with the linked list
+    Alloc get_allocator() const noexcept { return m_allocator; }
 
     // Get first element in linked list
     std::unique_ptr<Node, std::function<void(Node*)>> front() { return head; }
@@ -209,7 +207,7 @@ public:
     // Adds an element to the end of the linked list
     void push_back(const T& value) {
         using allocator_type = typename std::allocator_traits<Alloc>::template rebind_alloc<Node>;
-        allocator_type node_allocator(allocator);
+        allocator_type node_allocator(m_allocator);
 
         std::unique_ptr<Node, std::function<void(Node*)>> newNode(
             std::allocator_traits<allocator_type>::allocate(node_allocator, 1),
@@ -234,7 +232,7 @@ public:
 
     void push_back(T&& value) {
         using allocator_type = typename std::allocator_traits<Alloc>::template rebind_alloc<Node>;
-        allocator_type node_allocator(allocator);
+        allocator_type node_allocator(m_allocator);
 
         std::unique_ptr<Node, std::function<void(Node*)>> newNode(
             std::allocator_traits<allocator_type>::allocate(node_allocator, 1),
@@ -260,7 +258,7 @@ public:
     // Adds an element to the front of the linked list
     void push_front(const T& value) {
         using allocator_type = typename std::allocator_traits<Alloc>::template rebind_alloc<Node>;
-        allocator_type node_allocator(allocator);
+        allocator_type node_allocator(m_allocator);
 
         std::unique_ptr<Node, std::function<void(Node*)>> newNode(
             std::allocator_traits<allocator_type>::allocate(node_allocator, 1),
@@ -285,7 +283,7 @@ public:
 
     void push_front(T&& value) {
         using allocator_type = typename std::allocator_traits<Alloc>::template rebind_alloc<Node>;
-        allocator_type node_allocator(allocator);
+        allocator_type node_allocator(m_allocator);
 
         std::unique_ptr<Node, std::function<void(Node*)>> newNode(
             std::allocator_traits<allocator_type>::allocate(node_allocator, 1),
@@ -320,7 +318,7 @@ public:
         }
         else {
             using allocator_type = typename std::allocator_traits<Alloc>::template rebind_alloc<Node>;
-            allocator_type node_allocator(allocator);
+            allocator_type node_allocator(m_allocator);
 
             std::unique_ptr<Node, std::function<void(Node*)>> newNode(
                 std::allocator_traits<allocator_type>::allocate(node_allocator, 1),
@@ -357,7 +355,7 @@ public:
         }
         else {
             using allocator_type = typename std::allocator_traits<Alloc>::template rebind_alloc<Node>;
-            allocator_type node_allocator(allocator);
+            allocator_type node_allocator(m_allocator);
 
             std::unique_ptr<Node, std::function<void(Node*)>> newNode(
                 std::allocator_traits<allocator_type>::allocate(node_allocator, 1),
@@ -422,7 +420,7 @@ public:
         Node* currentNode = const_cast<Node*>(index);
 
         using allocator_type = typename std::allocator_traits<Alloc>::template rebind_alloc<Node>;
-        allocator_type node_allocator(allocator);
+        allocator_type node_allocator(m_allocator);
 
         std::unique_ptr<Node, std::function<void(Node*)>> newNode(
             std::allocator_traits<allocator_type>::allocate(node_allocator, 1),
@@ -455,7 +453,7 @@ public:
     template <class... Args>
     T& emplace_front(Args&&... args) {
         using allocator_type = typename std::allocator_traits<Alloc>::template rebind_alloc<Node>;
-        allocator_type node_allocator(allocator);
+        allocator_type node_allocator(m_allocator);
 
         std::unique_ptr<Node, std::function<void(Node*)>> newNode(
             std::allocator_traits<allocator_type>::allocate(node_allocator, 1),
@@ -485,7 +483,7 @@ public:
     template <class... Args>
     T& emplace_back(Args&&... args) {
         using allocator_type = typename std::allocator_traits<Alloc>::template rebind_alloc<Node>;
-        allocator_type node_allocator(allocator);
+        allocator_type node_allocator(m_allocator);
 
         std::unique_ptr<Node, std::function<void(Node*)>> newNode(
             std::allocator_traits<allocator_type>::allocate(node_allocator, 1),
@@ -625,8 +623,8 @@ public:
     void sort(Compare comp) {
         if (size() <= 1) { return; }
 
-        DoubleLinkedList left(allocator);
-        DoubleLinkedList right(allocator);
+        DoubleLinkedList left(m_allocator);
+        DoubleLinkedList right(m_allocator);
 
         auto mid = begin();
         for (std::size_t i = 0; i < size() / 2; ++i) {
@@ -762,7 +760,7 @@ public:
         std::swap(head, other.head);
         std::swap(tail, other.tail);
         std::swap(m_size, other.m_size);
-        std::swap(allocator, other.allocator);
+        std::swap(m_allocator, other.m_allocator);
     }
 
     // Reverses the order of elements in the linked list by swapping head and tail pointers
@@ -946,5 +944,5 @@ private:
     std::unique_ptr<Node, std::function<void(Node*)>> head;
     std::unique_ptr<Node, std::function<void(Node*)>> tail;
     std::size_t m_size;
-    Alloc allocator;
+    Alloc m_allocator;
 };

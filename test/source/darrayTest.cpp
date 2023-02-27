@@ -74,7 +74,8 @@ TEST_CASE("Test pop_back function") {
 
 TEST_CASE("Test insert function") {
     DynamicArray<int> arr = {1, 2, 3, 4, 5};
-    arr.insert(2, 6);
+    auto it = arr.begin() + 2;
+    arr.insert(it, 6);
     CHECK(arr.size() == 6);
 }
 
@@ -112,7 +113,7 @@ TEST_CASE("Test reserve function") {
     }
 }
 
-TEST_CASE("Test remove function") {
+TEST_CASE("Test erase 1 element function") {
     DynamicArray<int> arr;
 
     arr.push_back(1);
@@ -121,25 +122,30 @@ TEST_CASE("Test remove function") {
     arr.push_back(4);
 
     // Test removing an element at the middle
-    arr.remove(1);
+    auto it1 = arr.begin() + 1;
+    arr.erase(it1);
     DynamicArray<int> expected = {1, 3, 4};
     CHECK(arr == expected);
 
     // Test removing an element at the end
-    arr.remove(2);
+    auto it2 = arr.begin() + 2;
+    arr.erase(it2);
     expected = {1, 3};
     CHECK(arr == expected);
 
     // Test removing an element at the beginning
-    arr.remove(0);
+    auto it3 = arr.begin();
+    arr.erase(it3);
     expected = {3};
     CHECK(arr == expected);
 
     // Test removing the only element in the array
-    arr.remove(0);
+    auto it4 = arr.begin();
+    arr.erase(it4);
     expected = {};
     CHECK(arr == expected);
 
     // Test removing from an empty array
-    CHECK_THROWS(arr.remove(0));
+    auto it5 = arr.begin();
+    CHECK_THROWS(arr.erase(it5));
 }
