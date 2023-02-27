@@ -523,18 +523,20 @@ public:
 
         auto i = begin() + std::distance(cbegin(), first);
         auto j = begin() + std::distance(cbegin(), last);
+        auto num_to_move = std::distance(j, end());
 
-        std::allocator_traits<Alloc>::destroy(m_allocator, i, j);
-
+        for (; i != j; ++i) {
+            std::allocator_traits<Alloc>::destroy(m_allocator, i);
+        }
         std::move(j, end(), i);
 
-        m_size -= std::distance(i, j);
+        m_size -= std::distance(first, last);
 
         if (m_size < m_capacity / 2) {
             shrink_to_fit();
         }
 
-        return i;
+        return i - num_to_move;
     }
 
     // Resizes array to contain 'count' of elements of type 'value'
