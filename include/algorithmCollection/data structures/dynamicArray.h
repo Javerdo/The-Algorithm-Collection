@@ -369,7 +369,13 @@ public:
             std::uninitialized_fill_n(new_data + (i - m_data.get()), count, value);
             std::uninitialized_move_n(i, m_size - (i - m_data.get()), new_data + (i - m_data.get()) + count);
 
-            std::allocator_traits<Alloc>::destroy(m_allocator, i, i + count);
+            auto first = i;
+            auto last = i + count;
+
+            for (; first != last; ++first) {
+                std::allocator_traits<Alloc>::destroy(m_allocator, std::addressof(*first));
+            }
+
             std::allocator_traits<Alloc>::deallocate(m_allocator, m_data.release(), m_capacity);
 
             m_data.reset(new_data);
@@ -390,6 +396,8 @@ public:
         return insert(index, ilist.begin(), ilist.end());
     }
 
+    // TODO: Fix code
+    /*
     template <class InputIt>
     constexpr iterator insert(const_iterator index, InputIt first, InputIt last) {
         if (index < cbegin() || index > cend()) {
@@ -407,7 +415,10 @@ public:
             std::uninitialized_copy(first, last, new_data + (i - m_data.get()));
             std::uninitialized_move_n(i, m_size - (i - m_data.get()), new_data + (i - m_data.get()) + count);
 
-            std::allocator_traits<Alloc>::destroy(m_allocator, m_data.get(), m_data.get() + m_size);
+            for (; first != last; ++first) {
+                std::allocator_traits<Alloc>::destroy(m_allocator, std::addressof(*first));
+            }
+
             std::allocator_traits<Alloc>::deallocate(m_allocator, m_data.release(), m_capacity);
 
             m_data.reset(new_data);
@@ -424,6 +435,7 @@ public:
 
         return i;
     }
+    */
 
     // Appends a new element before index in the array.
     template <class... Args>
