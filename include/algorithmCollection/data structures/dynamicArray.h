@@ -99,11 +99,18 @@ public:
         other.m_capacity = 0;
     }
 
+    ~DynamicArray() {
+        for (size_t i = 0; i < m_size; ++i) {
+            std::allocator_traits<Alloc>::destroy(m_allocator, m_data.get() + i);
+        }
+        std::allocator_traits<Alloc>::deallocate(m_allocator, m_data.release(), m_capacity);
+    }
+
     // Overloading the copy assignment operator to copy data from another DynamicArray object.
     constexpr DynamicArray& operator=(const DynamicArray& other) noexcept {
         if (this != &other) {
             if (m_capacity < other.m_size) {
-                auto new_data = std::allocator_traits<Alloc>::allocate(m_allocator, other.m_size());
+                auto new_data = std::allocator_traits<Alloc>::allocate(m_allocator, other.m_size);
 
                 if constexpr (!std::is_trivially_copyable_v<T>) {
                     std::uninitialized_copy(other.m_data.get(), other.m_data.get() + other.m_size, new_data);
@@ -306,13 +313,17 @@ public:
             }
 
             if (new_data != m_data.get()) {
-                std::uninitialized_copy(m_data.get(), m_data.get() + m_size, new_data);
-                std::allocator_traits<Alloc>::deallocate(m_allocator, m_data.get(), m_capacity);
+                std::uninitialized_move(m_data.get(), m_data.get() + m_size, new_data);
 
-                auto new_data_ptr = std::unique_ptr<T[], 
-                    ArrayDeleter<T, Alloc>>(new_data, ArrayDeleter<T, Alloc>(m_allocator, m_size, m_capacity));
+                ArrayDeleter<T, Alloc> old_data_deleter(m_allocator, m_size, m_capacity);
+                old_data_deleter(m_data.release());
+
+                auto new_data_ptr = std::unique_ptr<T[], ArrayDeleter<T, Alloc>>(new_data,
+                    ArrayDeleter<T, Alloc>(m_allocator, m_size, new_capacity));
                 m_data = std::move(new_data_ptr);
                 m_capacity = new_capacity;
+                m_data.get_deleter().m_capacity = new_capacity;
+                m_data.get_deleter().m_size = m_size;
             }
         }
     }
@@ -339,7 +350,10 @@ public:
 
     // Erase all elements
     constexpr void clear() noexcept {
-        std::allocator_traits<Alloc>::destroy(m_allocator, m_data.get(), m_data.get() + m_size);
+        for (size_t index = 0; index < m_size; ++index) {
+            std::allocator_traits<Alloc>::destroy(m_allocator, m_data.get() + index);
+        }
+
         std::allocator_traits<Alloc>::deallocate(m_allocator, m_data.release(), m_capacity);
         m_data.reset(nullptr);
         m_capacity = 0;
@@ -359,18 +373,18 @@ public:
             throw std::out_of_range("Invalid index");
         }
 
-        auto i = begin() + std::distance(cbegin(), index);
+        auto insert_index = begin() + std::distance(cbegin(), index);
 
         if (m_size + count > m_capacity) {
             std::size_t new_capacity = m_capacity == 0 ? 1 : m_capacity * 2;
             T* new_data = std::allocator_traits<Alloc>::allocate(m_allocator, new_capacity);
 
-            std::uninitialized_move_n(m_data.get(), i - m_data.get(), new_data);
-            std::uninitialized_fill_n(new_data + (i - m_data.get()), count, value);
-            std::uninitialized_move_n(i, m_size - (i - m_data.get()), new_data + (i - m_data.get()) + count);
+            std::uninitialized_fill_n(new_data + (insert_index - m_data.get()), count, value);
+            std::uninitialized_move_n(m_data.get(), insert_index - m_data.get(), new_data);
+            std::uninitialized_move_n(insert_index, m_size - (insert_index - m_data.get()), new_data + (insert_index - m_data.get()) + count);
 
-            auto first = i;
-            auto last = i + count;
+            auto first = insert_index;
+            auto last = insert_index + count;
 
             for (; first != last; ++first) {
                 std::allocator_traits<Alloc>::destroy(m_allocator, std::addressof(*first));
@@ -383,21 +397,19 @@ public:
             m_size += count;
         }
         else {
-            std::uninitialized_move_n(i, m_size - (i - m_data.get()), i + count);
-            std::uninitialized_fill_n(i, count, value);
+            std::uninitialized_move_n(insert_index, m_size - (insert_index - m_data.get()), insert_index + count);
+            std::uninitialized_fill_n(insert_index, count, value);
 
             m_size += count;
         }
 
-        return i;
+        return insert_index;
     }
 
     constexpr iterator insert(const_iterator index, std::initializer_list<T> ilist) {
         return insert(index, ilist.begin(), ilist.end());
     }
 
-    // TODO: Fix code
-    /*
     template <class InputIt>
     constexpr iterator insert(const_iterator index, InputIt first, InputIt last) {
         if (index < cbegin() || index > cend()) {
@@ -405,19 +417,15 @@ public:
         }
 
         auto count = std::distance(first, last);
-        auto i = begin() + std::distance(cbegin(), index);
+        auto insert_index = begin() + std::distance(cbegin(), index);
 
         if (m_size + count > m_capacity) {
-            std::size_t new_capacity = m_capacity == 0 ? 1 : m_capacity * 2;
+            std::size_t new_capacity = std::max(m_capacity * 2, m_size + count);
             T* new_data = std::allocator_traits<Alloc>::allocate(m_allocator, new_capacity);
 
-            std::uninitialized_move_n(m_data.get(), i - m_data.get(), new_data);
-            std::uninitialized_copy(first, last, new_data + (i - m_data.get()));
-            std::uninitialized_move_n(i, m_size - (i - m_data.get()), new_data + (i - m_data.get()) + count);
-
-            for (; first != last; ++first) {
-                std::allocator_traits<Alloc>::destroy(m_allocator, std::addressof(*first));
-            }
+            std::uninitialized_move_n(m_data.get(), insert_index - m_data.get(), new_data);
+            std::uninitialized_copy(first, last, new_data + (insert_index - m_data.get()));
+            std::uninitialized_move_n(insert_index, m_size - (insert_index - m_data.get()), new_data + (insert_index - m_data.get()) + count);
 
             std::allocator_traits<Alloc>::deallocate(m_allocator, m_data.release(), m_capacity);
 
@@ -426,16 +434,14 @@ public:
             m_size += count;
         }
         else {
-            std::uninitialized_move_n(i, m_size - (i - m_data.get()), i + count);
-            std::uninitialized_copy(first, last, i);
+            std::uninitialized_move_n(insert_index, m_size - (insert_index - m_data.get()), insert_index + count);
+            std::uninitialized_copy(first, last, insert_index);
 
-            std::allocator_traits<Alloc>::destroy(m_allocator, m_data.get() + m_size);
             m_size += count;
         }
 
-        return i;
+        return insert_index;
     }
-    */
 
     // Appends a new element before index in the array.
     template <class... Args>
@@ -448,7 +454,6 @@ public:
         }
 
         if (m_size == m_capacity) {
-            m_original_capacity = m_capacity; // update m_original_capacity
             m_capacity = m_capacity == 0 ? 1 : m_capacity * 2;
         }
 
@@ -465,20 +470,19 @@ public:
         std::uninitialized_copy(m_data.get() + index_offset, m_data.get() + m_size, new_data + index_offset + 1);
 
         // Destroy the old elements
-        for (size_t i = 0; i < m_size; ++i) {
-            std::allocator_traits<Alloc>::destroy(m_allocator, m_data.get() + i);
+        for (std::size_t destroy_index = 0; destroy_index < m_size; ++destroy_index) {
+            std::allocator_traits<Alloc>::destroy(m_allocator, m_data.get() + destroy_index);
         }
 
         // Deallocate the memory used by the old array
-        std::allocator_traits<Alloc>::deallocate(m_allocator, m_data.release(), m_original_capacity);
+        std::allocator_traits<Alloc>::deallocate(m_allocator, m_data.release(), m_capacity);
 
         // Point to the new array
         m_data.reset(new_data);
-        m_capacity *= 2;
         ++m_size;
 
         // Return an iterator pointing to the new element
-        return m_data.get() + index_offset;     
+        return m_data.get() + index_offset;
     }
 
     // Appends a new element to the end of the array.
@@ -500,11 +504,10 @@ public:
             throw std::out_of_range("Invalid index");
         }
 
-        auto i = begin() + (index - cbegin());
-        //auto i = begin() + std::distance(cbegin(), index);
-        std::allocator_traits<Alloc>::destroy(m_allocator, i);
+        auto erase_index = begin() + (index - cbegin());
+        std::allocator_traits<Alloc>::destroy(m_allocator, erase_index);
 
-        std::move(i + 1, end(), i);
+        std::move(erase_index + 1, end(), erase_index);
 
         --m_size;
 
@@ -512,7 +515,7 @@ public:
             shrink_to_fit();
         }
 
-        return i;
+        return erase_index;
     }
 
     // Remove elements in range [first, last]
@@ -521,29 +524,32 @@ public:
             throw std::out_of_range("Invalid range");
         }
 
-        auto i = begin() + std::distance(cbegin(), first);
-        auto j = begin() + std::distance(cbegin(), last);
-        auto num_to_move = std::distance(j, end());
+        auto first_index = begin() + std::distance(cbegin(), first);
+        auto last_index = begin() + std::distance(cbegin(), last);
+        auto num_to_move = std::distance(last_index, end());
 
-        for (; i != j; ++i) {
-            std::allocator_traits<Alloc>::destroy(m_allocator, i);
+        for (; first_index != last_index; ++first_index) {
+            std::allocator_traits<Alloc>::destroy(m_allocator, first_index);
         }
-        std::move(j, end(), i);
 
+        std::move(last_index, end(), first_index);
         m_size -= std::distance(first, last);
 
         if (m_size < m_capacity / 2) {
             shrink_to_fit();
         }
 
-        return i - num_to_move;
+        return first_index;
     }
 
     // Resizes array to contain 'count' of elements of type 'value'
-    constexpr void resize(std::size_t count, const T& value) {
+    constexpr void resize(std::size_t count, const T& value = T()) {
         if (count < m_size) {
-            std::allocator_traits<Alloc>::destroy(m_allocator, m_data.get() + count, m_data.get() + m_size);
+            std::size_t old_size = m_size;
             m_size = count;
+            for (std::size_t i = count; i < old_size; ++i) {
+                std::allocator_traits<Alloc>::destroy(m_allocator, m_data.get() + i);
+            }
         }
         else if (count > m_size && count <= m_capacity) {
             std::uninitialized_fill(m_data.get() + m_size, m_data.get() + count, value);
@@ -551,11 +557,15 @@ public:
         }
         else {
             auto new_data = std::allocator_traits<Alloc>::allocate(m_allocator, count);
-            std::uninitialized_fill(new_data, new_data + count, value);
-            std::allocator_traits<Alloc>::destroy(m_allocator, m_data.get(), m_data.get() + m_size);
+            std::uninitialized_copy(m_data.get(), m_data.get() + m_size, new_data);
+            std::uninitialized_fill(new_data + m_size, new_data + count, value);
+            std::size_t old_size = m_size;
+            m_size = count;
+            for (std::size_t index = 0; index < old_size; ++index) {
+                std::allocator_traits<Alloc>::destroy(m_allocator, m_data.get() + index);
+            }
             std::allocator_traits<Alloc>::deallocate(m_allocator, m_data.release(), m_capacity);
             m_data.reset(new_data);
-            m_size = count;
             m_capacity = count;
         }
     }
@@ -572,46 +582,18 @@ public:
     // Add an element to the end of the array
     constexpr void push_back(const T& value) {
         if (m_size == m_capacity) {
-            // Allocate new memory
-            std::size_t new_capacity = m_capacity == 0 ? 1 : m_capacity * 2;
-            T* new_data = std::allocator_traits<Alloc>::allocate(m_allocator, new_capacity);
-
-            // Copy elements to new memory
-            std::uninitialized_copy_n(m_data.get(), m_size, new_data);
-
-            // Destroy old elements and deallocate old memory
-            std::unique_ptr<T[], ArrayDeleter<T, Alloc>> old_data(m_data.release(), ArrayDeleter<T, Alloc>(m_allocator, m_size, m_capacity));
-            m_capacity = new_capacity;
-
-            // Create a new unique_ptr to hold the new memory and transfer ownership
-            std::unique_ptr<T[], ArrayDeleter<T, Alloc>> new_data_ptr(new_data, ArrayDeleter<T, Alloc>(m_allocator, m_size, new_capacity));
-            std::swap(m_data, new_data_ptr);
+            reserve(m_capacity == 0 ? 1 : m_capacity * 2);
         }
 
-        // Construct new element
         std::allocator_traits<Alloc>::construct(m_allocator, m_data.get() + m_size, value);
         ++m_size;
     }
 
     constexpr void push_back(T&& value) {
         if (m_size == m_capacity) {
-            // Allocate new memory
-            std::size_t new_capacity = m_capacity == 0 ? 1 : m_capacity * 2;
-            T* new_data = std::allocator_traits<Alloc>::allocate(m_allocator, new_capacity);
-
-            // Move elements to new memory
-            std::uninitialized_move_n(m_data.get(), m_size, new_data);
-
-            // Destroy old elements and deallocate old memory
-            std::unique_ptr<T[], ArrayDeleter<T, Alloc>> old_data(m_data.release(), ArrayDeleter<T, Alloc>(m_allocator, m_size, m_capacity));
-            m_capacity = new_capacity;
-
-            // Create a new unique_ptr to hold the new memory and transfer ownership
-            std::unique_ptr<T[], ArrayDeleter<T, Alloc>> new_data_ptr(new_data, ArrayDeleter<T, Alloc>(m_allocator, m_size, new_capacity));
-            std::swap(m_data, new_data_ptr);
+            reserve(m_capacity == 0 ? 1 : m_capacity * 2);
         }
 
-        // Construct new element
         std::allocator_traits<Alloc>::construct(m_allocator, m_data.get() + m_size, std::move(value));
         ++m_size;
     }
@@ -620,8 +602,8 @@ public:
     constexpr void push_front(const T& value) {
         if (m_size + 1 > m_capacity) {
             m_original_capacity = m_capacity; // update m_original_capacity
-            m_capacity = std::max(1u, static_cast<unsigned int>(m_capacity * 2));
-            auto new_data = std::allocator_traits<Alloc>::allocate(m_allocator, m_capacity);
+            std::size_t new_capacity = std::max(1u, static_cast<unsigned int>(m_capacity * 2));
+            auto new_data = std::allocator_traits<Alloc>::allocate(m_allocator, new_capacity);
 
             // Move all elements one position to the right
             std::uninitialized_move(m_data.get(), m_data.get() + m_size, std::addressof(*(new_data + 1)));
@@ -630,14 +612,15 @@ public:
             std::allocator_traits<Alloc>::construct(m_allocator, new_data, value);
 
             // Destroy the old elements
-            for (size_t i = 0; i < m_size; ++i) {
-                std::allocator_traits<Alloc>::destroy(m_allocator, m_data.get() + i);
+            for (size_t index = 0; index < m_size; ++index) {
+                std::allocator_traits<Alloc>::destroy(m_allocator, m_data.get() + index);
             }
 
             // Deallocate the old memory
-            std::allocator_traits<Alloc>::deallocate(m_allocator, m_data.release(), m_capacity);
+            std::allocator_traits<Alloc>::deallocate(m_allocator, m_data.release(), m_original_capacity);
 
             m_data.reset(new_data);
+            m_capacity = new_capacity;
         }
         else {
             // Move all elements one position to the right
@@ -652,33 +635,13 @@ public:
 
     // remove the last element from the array
     constexpr void pop_back() {
-        // If array is empty, throw an error
         if (empty()) {
             throw std::logic_error("Array is empty");
         }
 
         // Destroy the last element in the array
         std::allocator_traits<Alloc>::destroy(m_allocator, m_data.get() + m_size - 1);
-
-        // Decrement the size of the array
         --m_size;
-
-        // Allocate memory for the new array
-        auto new_data = std::allocator_traits<Alloc>::allocate(m_allocator, m_size);
-
-        // Copy all elements except the last one from the old array to the new array
-        std::uninitialized_copy(m_data.get(), m_data.get() + m_size, new_data);
-
-        // Destroy the old elements
-        for (size_t i = 0; i < m_size + 1; ++i) {
-            std::allocator_traits<Alloc>::destroy(m_allocator, m_data.get() + i);
-        }
-
-        // Deallocate the memory used by the old array
-        std::allocator_traits<Alloc>::deallocate(m_allocator, m_data.release(), m_capacity);
-
-        // Point to the new array
-        m_data.reset(new_data);
     }
 
     // remove the first element from the array
@@ -689,40 +652,24 @@ public:
 
         // Destroy the first element in the array
         std::allocator_traits<Alloc>::destroy(m_allocator, m_data.get());
-
-        // Decrement the size of the array
+        std::move(m_data.get() + 1, m_data.get() + m_size, m_data.get());
         --m_size;
-
-        // Allocate memory for the new array
-        auto new_data = std::allocator_traits<Alloc>::allocate(m_allocator, m_size);
-
-        // Move the existing elements to the left in the new memory
-        std::uninitialized_move(m_data.get() + 1, m_data.get() + m_size + 1, new_data);
-
-        // Destroy the old elements
-        for (size_t i = 0; i < m_size + 1; ++i) {
-            std::allocator_traits<Alloc>::destroy(m_allocator, m_data.get() + i);
-        }
-
-        // Deallocate the memory used by the old array
-        std::allocator_traits<Alloc>::deallocate(m_allocator, m_data.release(), m_capacity);
-
-        // Point to the new array
-        m_data.reset(new_data);
     }
 
 private:
     template <typename T1, typename Alloc1>
     class ArrayDeleter {
+        template<typename, typename>
+        friend class DynamicArray;
     public:
         ArrayDeleter()
-            : m_allocator(Alloc1()), m_size(0), m_capacity(0), m_num_destroyed(0) {}
+            : m_allocator(Alloc1()), m_size(0), m_capacity(0) {}
 
         explicit ArrayDeleter(Alloc1& alloc, std::size_t size, std::size_t capacity)
-            : m_allocator(alloc), m_size(size), m_capacity(capacity), m_num_destroyed(0) {}
+            : m_allocator(alloc), m_size(size), m_capacity(capacity) {}
 
         explicit ArrayDeleter(const Alloc& alloc, std::size_t size, std::size_t capacity)
-            : m_allocator(alloc), m_size(size), m_capacity(capacity), m_num_destroyed(0) {}
+            : m_allocator(alloc), m_size(size), m_capacity(capacity) {}
 
         void operator()(T1* data) {
             if (data) {
@@ -730,11 +677,7 @@ private:
                     std::allocator_traits<Alloc1>::destroy(m_allocator, data + i);
                 }
 
-                if (m_num_destroyed == m_size - 1) {
-                    std::allocator_traits<Alloc1>::deallocate(m_allocator, data, m_capacity);
-                }
-
-                ++m_num_destroyed;
+                std::allocator_traits<Alloc1>::deallocate(m_allocator, data, m_capacity);
             }
         }
 
@@ -742,14 +685,12 @@ private:
         ArrayDeleter(ArrayDeleter&& other) noexcept
             : m_allocator(other.m_allocator), 
             m_size(other.m_size), 
-            m_capacity(other.m_capacity), 
-            m_num_destroyed(other.m_num_destroyed) {}
+            m_capacity(other.m_capacity) {}
 
         ArrayDeleter& operator=(ArrayDeleter&& other) noexcept {
             m_allocator = other.m_allocator;
             m_size = other.m_size;
             m_capacity = other.m_capacity;
-            m_num_destroyed = other.m_num_destroyed;
             return *this;
         }
 
@@ -757,7 +698,6 @@ private:
         Alloc1 m_allocator;
         std::size_t m_size;
         std::size_t m_capacity;
-        std::size_t m_num_destroyed;
     };
 
     std::size_t m_size;
