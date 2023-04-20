@@ -84,21 +84,21 @@ TEST_CASE("Test inserting a single element at the specified index (lvalue)") {
     int value = 42;
     list.insert(list.cbegin(), value);
     CHECK(list.front().data == 42);
-    CHECK(--list.back().data == 42);
+    CHECK(list.back().data == 42);
     CHECK(list.size() == 1);
 
     // Insert at the beginning
     value = 24;
     list.insert(list.cbegin(), value);
     CHECK(list.front().data == 24);
-    CHECK(--list.back().data == 42);
+    CHECK(list.back().data == 42);
     CHECK(list.size() == 2);
 
     // Insert at the end
     value = 99;
     list.insert(list.cend(), value);
     CHECK(list.front().data == 24);
-    CHECK(--list.back().data == 99);
+    CHECK(list.back().data == 99);
     CHECK(list.size() == 3);
 
     // Insert in the middle
@@ -107,33 +107,32 @@ TEST_CASE("Test inserting a single element at the specified index (lvalue)") {
     value = 55;
     list.insert(it, value);
     CHECK(list.front().data == 24);
-    CHECK(--list.back().data == 99);
+    CHECK(list.back().data == 99);
     CHECK(list.size() == 4);
     it = list.cbegin();
     ++it;
     CHECK(*it == 55);
 }
 
-/*
 TEST_CASE("Test inserting a single element at the specified index (rvalue)") {
     DoubleLinkedList<int> list;
 
     // Insert into an empty list
     list.insert(list.cbegin(), 42);
     CHECK(list.front().data == 42);
-    CHECK(--list.back().data == 42);
+    CHECK(list.back().data == 42);
     CHECK(list.size() == 1);
 
     // Insert at the beginning
     list.insert(list.cbegin(), 24);
     CHECK(list.front().data == 24);
-    CHECK(--list.back().data == 42);
+    CHECK(list.back().data == 42);
     CHECK(list.size() == 2);
 
     // Insert at the end
     list.insert(list.cend(), 99);
     CHECK(list.front().data == 24);
-    CHECK(--list.back().data == 99);
+    CHECK(list.back().data == 99);
     CHECK(list.size() == 3);
 
     // Insert in the middle
@@ -141,22 +140,20 @@ TEST_CASE("Test inserting a single element at the specified index (rvalue)") {
     ++it;
     list.insert(it, 55);
     CHECK(list.front().data == 24);
-    CHECK(--list.back().data == 99);
+    CHECK(list.back().data == 99);
     CHECK(list.size() == 4);
     it = list.cbegin();
     ++it;
     CHECK(*it == 55);
 }
-*/
 
-/*
 TEST_CASE("Test inserting multiple copies of an element at the specified index") {
     DoubleLinkedList<int> list;
 
     // Insert multiple elements at the beginning
-    list.insert(list.begin(), 3, 42);
+    list.insert(list.cbegin(), 3, 42);
     CHECK(list.front().data == 42);
-    CHECK(--list.back().data == 42);
+    CHECK(list.back().data == 42);
     CHECK(list.size() == 3);
 
     // Check if all elements are the same
@@ -164,20 +161,18 @@ TEST_CASE("Test inserting multiple copies of an element at the specified index")
         CHECK(elem == 42);
     }
 }
-*/
 
-/*
 TEST_CASE("Test inserting elements from an initializer list at the specified index") {
     DoubleLinkedList<int> list;
 
     // Insert initializer list at the beginning
-    list.insert(list.begin(), {1, 2, 3});
+    list.insert(list.cbegin(), {1, 2, 3});
     CHECK(list.front().data == 1);
     CHECK(list.back().data == 3);
     CHECK(list.size() == 3);
 
     // Insert initializer list in the middle
-    auto it = list.begin();
+    auto it = list.cbegin();
     ++it;
     list.insert(it, {4, 5});
     CHECK(list.front().data == 1);
@@ -192,7 +187,7 @@ TEST_CASE("Test inserting elements from an initializer list at the specified ind
     }
 
     // Insert initializer list at the end
-    list.insert(list.end(), {6, 7});
+    list.insert(list.cend(), {6, 7});
     CHECK(list.front().data == 1);
     CHECK(list.back().data == 7);
     CHECK(list.size() == 7);
@@ -204,24 +199,22 @@ TEST_CASE("Test inserting elements from an initializer list at the specified ind
         ++idx;
     }
 }
-*/
 
-/*
 TEST_CASE("Test inserting elements from a range of iterators at the specified index") {
     DoubleLinkedList<int> list;
     DynamicArray<int> values = {1, 2, 3};
 
     // Insert elements from a range at the beginning
-    list.insert(list.begin(), values.begin(), values.end());
+    list.insert(list.cbegin(), values.cbegin(), values.cend());
     CHECK(list.front().data == 1);
     CHECK(list.back().data == 3);
     CHECK(list.size() == 3);
 
     // Insert elements from a range in the middle
     DynamicArray<int> new_values = {4, 5};
-    auto it = list.begin();
+    auto it = list.cbegin();
     ++it;
-    list.insert(it, new_values.begin(), new_values.end());
+    list.insert(it, new_values.cbegin(), new_values.cend());
     CHECK(list.front().data == 1);
     CHECK(list.back().data == 3);
     CHECK(list.size() == 5);
@@ -235,7 +228,7 @@ TEST_CASE("Test inserting elements from a range of iterators at the specified in
 
     // Insert elements from a range at the end
     DynamicArray<int> end_values = {6, 7};
-    list.insert(list.end(), end_values.begin(), end_values.end());
+    list.insert(list.cend(), end_values.cbegin(), end_values.cend());
     CHECK(list.front().data == 1);
     CHECK(list.back().data == 7);
     CHECK(list.size() == 7);
@@ -247,4 +240,3 @@ TEST_CASE("Test inserting elements from a range of iterators at the specified in
         ++idx;
     }
 }
-*/

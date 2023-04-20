@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <compare>
 #include <algorithm>
+#include <type_traits>
 #include <functional>
 #include <utility>
 #include "../allocators/simpleAllocator.h"
@@ -23,11 +24,11 @@ private:
         std::unique_ptr<Node, std::function<void(Node*)>> next;
         Node* prev;
 
-        Node(T value, const allocator_type& alloc, Node* n = nullptr, Node* p = nullptr)
-            : data(value), next(n, [alloc](Node* n) {
-                    std::allocator_traits<allocator_type>::destroy(alloc, n);
-                    std::allocator_traits<allocator_type>::deallocate(alloc, n, 1);
-                }), prev(p) {}
+        Node(T value, allocator_type alloc, Node* n = nullptr, Node* p = nullptr)
+            : data(value), next(n, [alloc](Node* n) mutable {
+                std::allocator_traits<allocator_type>::deallocate(alloc, n, 1);
+            }), prev(p) {}
+
     };
 
     class const_iterator;
@@ -44,10 +45,12 @@ private:
 
         iterator() : node(nullptr) {}
         explicit iterator(Node* n) : node(n) {}
-        explicit iterator(const const_iterator& other) : node(other.node) {}
-        
+        iterator(const iterator& other) = default;
+
         iterator& operator=(const iterator& other) {
-            node = other.node;
+            if (this != &other) {
+                node = other.node;
+            }
             return *this;
         }
 
@@ -102,11 +105,12 @@ private:
 
         const_iterator() : node(nullptr) {}
         explicit const_iterator(const Node* n) : node(n) {}
-        const_iterator(const const_iterator& other) : node(other.node) {}
-        explicit const_iterator(const iterator& other) : node(other.node) {} 
-
+        const_iterator(const_iterator& other) = default;
+        
         const_iterator& operator=(const const_iterator& other) {
-            node = other.node;
+            if (this != &other) {
+                node = other.node;
+            }
             return *this;
         }
 
@@ -337,8 +341,7 @@ public:
 
     // Adds an element to the end of the linked list (lvalue)
     void push_back(const data_type& value) {
-        Node* newNode = std::allocator_traits<allocator_type>::allocate(m_allocator, 1);
-        std::allocator_traits<allocator_type>::construct(m_allocator, newNode, value);
+        Node* newNode = create_node(value);
 
         newNode->prev = tail ? tail.get() : nullptr;
         newNode->next = nullptr;
@@ -356,8 +359,7 @@ public:
 
     // Adds an element to the end of the linked list (rvalue)
     void push_back(data_type&& value) {
-        Node* newNode = std::allocator_traits<allocator_type>::allocate(m_allocator, 1);
-        std::allocator_traits<allocator_type>::construct(m_allocator, newNode, std::move(value));
+        Node* newNode = create_node(std::move(value));
 
         newNode->prev = tail ? tail.get() : nullptr;
         newNode->next = nullptr;
@@ -375,8 +377,7 @@ public:
 
     // Adds an element to the front of the linked list (lvalue)
     void push_front(const data_type& value) {
-        Node* newNode = std::allocator_traits<allocator_type>::allocate(m_allocator, 1);
-        std::allocator_traits<allocator_type>::construct(m_allocator, newNode, value);
+        Node* newNode = create_node(value);
 
         newNode->prev = nullptr;
 
@@ -394,8 +395,7 @@ public:
 
     // Adds an element to the front of the linked list (rvalue)
     void push_front(data_type&& value) {
-        Node* newNode = std::allocator_traits<allocator_type>::allocate(m_allocator, 1);
-        std::allocator_traits<allocator_type>::construct(m_allocator, newNode, std::move(value));
+        Node* newNode = create_node(std::move(value));
 
         newNode->prev = nullptr;
 
@@ -420,8 +420,7 @@ public:
             push_back(value);
             return iterator(tail.get());
         } else {
-            Node* newNode = std::allocator_traits<allocator_type>::allocate(m_allocator, 1);
-            std::allocator_traits<allocator_type>::construct(m_allocator, newNode, value);
+            Node* newNode = create_node(value);
 
             Node* prevNode = pos.get_node()->prev;
             newNode->prev = prevNode;
@@ -444,8 +443,7 @@ public:
             push_back(std::move(value));
             return iterator(tail.get());
         } else {
-            Node* newNode = std::allocator_traits<allocator_type>::allocate(m_allocator, 1);
-            std::allocator_traits<allocator_type>::construct(m_allocator, newNode, std::move(value));
+            Node* newNode = create_node(std::move(value));
 
             Node* prevNode = const_cast<Node*>(pos.get_node())->prev;
             newNode->prev = prevNode;
@@ -460,38 +458,40 @@ public:
     }
 
     // Insert multiple copies of an element at the specified index
-    iterator insert(const_iterator pos, size_type size, const data_type& value) {
+    iterator insert(const_iterator pos, size_type count, const data_type& value) {
         iterator first_inserted;
-        for (size_type i = 0; i < size; ++i) {
+        for (size_type i = 0; i < count; ++i) {
             first_inserted = insert(pos, value);
-            pos = iterator(const_cast<Node*>(pos.get_node()->next.get()));
+            pos = const_iterator(const_cast<Node*>(pos.get_node()->next.get()));
         }
 
         return first_inserted;
     }
-
+    
     // Insert elements from an initializer list at the specified index
     iterator insert(const_iterator pos, std::initializer_list<data_type> ilist) {
         iterator first_inserted;
         for (auto it = ilist.begin(); it != ilist.end(); ++it) {
             first_inserted = insert(pos, *it);
-            pos = iterator(const_cast<Node*>(pos.get_node()->next.get()));
+            pos = const_iterator(const_cast<Node*>(pos.get_node()->next.get()));
         }
 
         return first_inserted;
     }
 
     // Insert elements from a range of iterators at the specified index
-    template <class InputIt>
+    template <class InputIt, std::enable_if_t<std::is_same<typename std::iterator_traits<InputIt>::value_type, data_type>::value, int> = 0>
     iterator insert(const_iterator pos, InputIt first, InputIt last) {
         iterator first_inserted;
         for (auto it = first; it != last; ++it) {
             first_inserted = insert(pos, *it);
-            pos = iterator(const_cast<Node*>(pos.get_node()->next.get()));
+            pos = const_iterator(const_cast<Node*>(pos.get_node()->next.get()));
         }
 
         return first_inserted;
     }
+
+    /*
 
     template <class... Args>
     iterator emplace(const_iterator index, Args&&... args) {
@@ -525,6 +525,8 @@ public:
         return iterator;
     }
 
+    */
+
     // Removes all elements from the linked list
     void clear() noexcept {
         while (m_size > 0) {
@@ -546,13 +548,13 @@ public:
 
     // Removes duplicate elements from the linked list
     size_type unique() {
-        return size_type;
+        return 0;
     }
 
     // Removes duplicate elements from the linked list that satisfy predicate
     template <class BinaryPredicate>
     size_type unique(BinaryPredicate p) {
-        return size_type;
+        return 0;
     }
 
     void resize(size_type size) {}
@@ -592,19 +594,21 @@ public:
     void merge(DoubleLinkedList&& other, Compare comp) {}
 
 private:
-    // Returns a pointer to Node in the DoubleLinkedList which is specified by the iterator it
-    Node* getNodePtr(const_iterator it) const {
-        auto index = std::distance(cbegin(), it);
-        auto currentNode = head.get();
+    Node* create_node(const T& value, Node* next = nullptr, Node* prev = nullptr) {
+        Node* newNode = std::allocator_traits<allocator_type>::allocate(m_allocator, 1);
+        std::allocator_traits<allocator_type>::construct(m_allocator, newNode, value, m_allocator, next, prev);
 
-        for (std::size_t i = 0; i < index; ++i) {
-            currentNode = currentNode->next.get();
-        }
-
-        return currentNode;
+        return newNode;
     }
 
-    void deleteNode(node_type node) {
+    Node* create_node(T&& value, Node* next = nullptr, Node* prev = nullptr) {
+        Node* newNode = std::allocator_traits<allocator_type>::allocate(m_allocator, 1);
+        std::allocator_traits<allocator_type>::construct(m_allocator, newNode, std::move(value), m_allocator, next, prev);
+
+        return newNode;
+    }
+
+    void delete_node(node_type node) {
         std::allocator_traits<allocator_type>::destroy(m_allocator, node.get());
         std::allocator_traits<allocator_type>::deallocate(m_allocator, node.get(), 1);
     }

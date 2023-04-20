@@ -6,6 +6,9 @@ class SimpleAllocator {
 public:
     using value_type = T;
 
+    SimpleAllocator() = default;
+    SimpleAllocator(const SimpleAllocator&) = default;
+
     T* allocate(std::size_t n) {
         if (n == 0) {
             return nullptr;
